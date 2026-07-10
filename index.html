@@ -359,6 +359,17 @@
     setTimeout(function () { celebrateEl.classList.remove('burst'); }, 900);
   }
 
+  // "Listen first" while casting: the TV speaks the line itself, since
+  // there's no way to route the phone's own TTS audio to a cast receiver.
+  function speak(text) {
+    if (!text || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    var utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'en-US';
+    utter.rate = 0.85;
+    window.speechSynthesis.speak(utter);
+  }
+
   function renderPage(data) {
     idleEl.style.opacity = '0';
     setTimeout(function () { idleEl.style.display = 'none'; }, 500);
@@ -403,6 +414,8 @@
       renderPage(data);
     } else if (data.type === 'celebrate') {
       celebrate();
+    } else if (data.type === 'speak') {
+      speak(data.text);
     }
   });
 
