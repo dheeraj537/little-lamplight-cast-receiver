@@ -366,24 +366,49 @@
   // available on Chromecast's embedded Chromium, so real audio files (the
   // same reliable mechanism as the celebration chime) stand in for it.
   var narrateAudio = document.getElementById('narrateAudio');
+  var narratePreloaded = null; // 'book-page' key of what's currently loaded/loading
+
+  function narrateSrc(book, page) { return 'narrate/' + book + '-' + page + '.wav'; }
+
+  // Called on every page-sync message, well before "Listen first" is ever
+  // tapped, so the file is already buffered by the time it's needed -
+  // fetching + decoding on the actual button tap was the source of the
+  // audible delay before sound started.
+  function preloadNarration(book, page) {
+    if (!book || typeof page !== 'number') return;
+    var key = book + '-' + page;
+    if (narratePreloaded === key) return;
+    narratePreloaded = key;
+    narrateAudio.pause();
+    narrateAudio.oncanplay = null;
+    narrateAudio.src = narrateSrc(book, page);
+    narrateAudio.load();
+  }
+
   function speak(book, page) {
     if (!book || typeof page !== 'number') return;
-    narrateAudio.pause();
-    narrateAudio.oncanplay = function () {
-      narrateAudio.oncanplay = null;
+    var key = book + '-' + page;
+    narrateAudio.onerror = function () {
+      console.error('[speak] narration failed to load', narrateAudio.error);
+    };
+    var tryPlay = function () {
       var playPromise = narrateAudio.play();
       if (playPromise && typeof playPromise.catch === 'function') {
         playPromise.catch(function (err) { console.error('[speak] narration play failed', err); });
       }
     };
-    narrateAudio.onerror = function () {
-      console.error('[speak] narration failed to load', narrateAudio.error);
-    };
-    // Setting src fresh (unlike celebrateAudio, which has had its whole
-    // page-load lifetime to preload a static src) needs an explicit load()
-    // and a wait for canplay - calling play() immediately after a src swap
-    // can silently no-op before the browser has buffered anything.
-    narrateAudio.src = 'narrate/' + book + '-' + page + '.wav';
+    // Already preloaded (the common case) and ready enough to play now -
+    // HAVE_FUTURE_DATA or better means it can start without stalling.
+    if (narratePreloaded === key && narrateAudio.readyState >= 3) {
+      tryPlay();
+      return;
+    }
+    // Not preloaded yet (e.g. "Listen first" tapped before the page-sync
+    // message arrived) - fall back to the load-then-play path.
+    narratePreloaded = key;
+    narrateAudio.pause();
+    narrateAudio.oncanplay = function () { narrateAudio.oncanplay = null; tryPlay(); };
+    narrateAudio.src = narrateSrc(book, page);
     narrateAudio.load();
   }
 
@@ -391,6 +416,7 @@
     idleEl.style.opacity = '0';
     setTimeout(function () { idleEl.style.display = 'none'; }, 500);
     readingEl.classList.add('visible');
+    preloadNarration(data.book, data.page);
 
     scenePane.innerHTML = SCENES[data.scene] || SCENES.moon;
     bookTitleEl.textContent = data.bookTitle || '';
