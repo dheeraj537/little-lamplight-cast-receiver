@@ -368,11 +368,23 @@
   var narrateAudio = document.getElementById('narrateAudio');
   function speak(book, page) {
     if (!book || typeof page !== 'number') return;
+    narrateAudio.pause();
+    narrateAudio.oncanplay = function () {
+      narrateAudio.oncanplay = null;
+      var playPromise = narrateAudio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(function (err) { console.error('[speak] narration play failed', err); });
+      }
+    };
+    narrateAudio.onerror = function () {
+      console.error('[speak] narration failed to load', narrateAudio.error);
+    };
+    // Setting src fresh (unlike celebrateAudio, which has had its whole
+    // page-load lifetime to preload a static src) needs an explicit load()
+    // and a wait for canplay - calling play() immediately after a src swap
+    // can silently no-op before the browser has buffered anything.
     narrateAudio.src = 'narrate/' + book + '-' + page + '.wav';
-    var playPromise = narrateAudio.play();
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(function (err) { console.error('[speak] narration play failed', err); });
-    }
+    narrateAudio.load();
   }
 
   function renderPage(data) {
