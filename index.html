@@ -159,8 +159,7 @@
   <div id="celebrate">
     <div class="glow"><svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="#FFC857"/></svg></div>
   </div>
-  <audio id="celebrateAudio" src="celebrate.wav" preload="auto"></audio>
-  <audio id="narrateAudio" preload="auto"></audio>
+  <audio id="sfxAudio" preload="auto"></audio>
 
   <div id="idle">
     <svg class="moon-badge" viewBox="0 0 140 140">
@@ -331,7 +330,6 @@
   var hiLineEl = document.getElementById('hiLine');
   var pageDotsEl = document.getElementById('pageDots');
   var celebrateEl = document.getElementById('celebrate');
-  var celebrateAudio = document.getElementById('celebrateAudio');
 
   // Build the 6 burst particles once, matching the phone app's animation.
   (function setupParticles() {
@@ -348,68 +346,69 @@
     }
   })();
 
+  // A single shared <audio> element for both the celebration chime and the
+  // narration clips. Two separate <audio> elements previously fought each
+  // other for the Chromecast's audio decoding resources whenever a
+  // celebration and a narration preload landed close together (e.g.
+  // celebrating a page and preloading the next one) - one shared element
+  // makes that race impossible by construction.
+  var sfxAudio = document.getElementById('sfxAudio');
+  var sfxLoaded = null; // key of whatever's currently loaded/loading in sfxAudio
+  var narratePreloadKey = null; // book+page we'd like preloaded once sfxAudio is free
+
+  function playSfx(key, src) {
+    var tryPlay = function () {
+      var playPromise = sfxAudio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(function (err) { console.error('[sfx] play failed', key, err); });
+      }
+    };
+    if (sfxLoaded === key && sfxAudio.readyState >= 3) { tryPlay(); return; }
+    sfxLoaded = key;
+    sfxAudio.pause();
+    sfxAudio.onerror = function () { console.error('[sfx] failed to load', key, sfxAudio.error); };
+    sfxAudio.oncanplay = function () { sfxAudio.oncanplay = null; tryPlay(); };
+    sfxAudio.src = src;
+    sfxAudio.load();
+  }
+
   function celebrate() {
-    // A synchronous throw here (e.g. setting currentTime before the audio
-    // has loaded) must never block the actual play() attempt below it.
-    try { celebrateAudio.currentTime = 0; } catch (e) { /* fine to just play from wherever it is */ }
-    var playPromise = celebrateAudio.play();
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(function (err) { console.error('[celebrate] audio play failed', err); });
-    }
+    playSfx('celebrate', 'celebrate.wav');
     celebrateEl.classList.add('burst');
     setTimeout(function () { celebrateEl.classList.remove('burst'); }, 900);
   }
 
-  // "Listen first" while casting: plays a pre-recorded narration clip for
-  // the given book+page — there's no way to route the phone's own TTS audio
-  // to a cast receiver, and browser speech synthesis has no voices
-  // available on Chromecast's embedded Chromium, so real audio files (the
-  // same reliable mechanism as the celebration chime) stand in for it.
-  var narrateAudio = document.getElementById('narrateAudio');
-  var narratePreloaded = null; // 'book-page' key of what's currently loaded/loading
+  // Once whatever's playing finishes, pick up any narration preload that
+  // got deferred while the element was busy (see preloadNarration below).
+  sfxAudio.addEventListener('ended', function () {
+    if (narratePreloadKey && sfxLoaded !== narratePreloadKey) {
+      var parts = narratePreloadKey.replace('narrate:', '').split('-');
+      preloadNarration(parts[0], Number(parts[1]));
+    }
+  });
 
   function narrateSrc(book, page) { return 'narrate/' + book + '-' + page + '.wav'; }
 
   // Called on every page-sync message, well before "Listen first" is ever
-  // tapped, so the file is already buffered by the time it's needed -
-  // fetching + decoding on the actual button tap was the source of the
-  // audible delay before sound started.
+  // tapped, so the file is usually already buffered by the time it's
+  // needed. Skipped while the shared audio element is busy with something
+  // else (e.g. a celebration just fired) so it never interrupts that -
+  // speak() below will fall back to a fresh load if this never got to run.
   function preloadNarration(book, page) {
     if (!book || typeof page !== 'number') return;
-    var key = book + '-' + page;
-    if (narratePreloaded === key) return;
-    narratePreloaded = key;
-    narrateAudio.pause();
-    narrateAudio.oncanplay = null;
-    narrateAudio.src = narrateSrc(book, page);
-    narrateAudio.load();
+    var key = 'narrate:' + book + '-' + page;
+    narratePreloadKey = key;
+    if (sfxLoaded === key) return; // already loaded/loading this exact clip
+    if (!sfxAudio.paused) return; // busy actively playing something else - don't interrupt it
+    sfxLoaded = key;
+    sfxAudio.oncanplay = null;
+    sfxAudio.src = narrateSrc(book, page);
+    sfxAudio.load();
   }
 
   function speak(book, page) {
     if (!book || typeof page !== 'number') return;
-    var key = book + '-' + page;
-    narrateAudio.onerror = function () {
-      console.error('[speak] narration failed to load', narrateAudio.error);
-    };
-    var tryPlay = function () {
-      var playPromise = narrateAudio.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(function (err) { console.error('[speak] narration play failed', err); });
-      }
-    };
-    // Already preloaded (the common case) and ready enough to play now -
-    // HAVE_FUTURE_DATA or better means it can start without stalling.
-    if (narratePreloaded === key && narrateAudio.readyState >= 3) {
-      tryPlay();
-      return;
-    }
-    // Not preloaded yet (e.g. "Listen first" tapped before the page-sync
-    // message arrived) - fall back to the load-then-play path.
-    narratePreloaded = key;
-    narrateAudio.pause();
-    narrateAudio.oncanplay = function () { narrateAudio.oncanplay = null; tryPlay(); };
-    narrateAudio.src = narrateSrc(book, page);
-    narrateAudio.load();
+    playSfx('narrate:' + book + '-' + page, narrateSrc(book, page));
   }
 
   function renderPage(data) {
