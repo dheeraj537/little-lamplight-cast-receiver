@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Little Lamplight — Cast Receiver</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --night: #332B4E;
+    --night-deep: #2A2342;
+    --night-soft: #4A4170;
+    --lamp: #FFC857;
+    --coral: #F08A7E;
+    --milk: #FFF9F0;
+    --milk-soft: rgba(255,249,240,0.72);
+    --milk-faint: rgba(255,249,240,0.5);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--night);
+    color: var(--milk);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+  /* 10-foot UI: generous safe-area margin so nothing sits under a TV's overscan crop */
+  .safe {
+    position: absolute; inset: 5%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- Idle screen ---------- */
+  #idle {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    transition: opacity 0.6s ease;
+  }
+  #idle .moon-badge { width: 140px; height: 140px; margin-bottom: 28px; }
+  #idle h1 { font-size: 3.4vw; margin: 0 0 12px; font-weight: 800; }
+  #idle p { font-size: 1.6vw; color: var(--milk-soft); margin: 0; }
+  .dot { fill: var(--milk); opacity: 0.7; }
+
+  /* ---------- Reading screen ---------- */
+  #reading {
+    position: absolute; inset: 0;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  #reading.visible { display: flex; opacity: 1; }
+  .stage {
+    display: flex;
+    align-items: center;
+    gap: 4vw;
+    width: 100%;
+    height: 100%;
+  }
+  .scene-pane {
+    flex: 0 0 42%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .scene-pane svg { width: 100%; height: auto; max-height: 78vh; }
+
+  .content-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+  }
+  .book-title {
+    font-size: 1.5vw;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--lamp);
+    font-weight: 700;
+    margin-bottom: 1.4vw;
+  }
+  .sentence {
+    background: var(--milk);
+    color: var(--night-deep);
+    border-radius: 28px;
+    padding: 2.6vw 3vw;
+    font-size: 4.4vw;
+    font-weight: 800;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  .sentence .word { transition: background 0.15s ease; border-radius: 10px; padding: 0 6px; }
+  .sentence .word.hl { background: var(--lamp); }
+  .sentence .word.target { text-decoration: underline; text-decoration-color: var(--coral); text-decoration-thickness: 5px; text-underline-offset: 8px; }
+
+  .phonetic {
+    margin-top: 1.6vw;
+    font-size: 1.5vw;
+    color: var(--milk-soft);
+  }
+
+  .try-together {
+    margin-top: 2vw;
+    border: 3px dashed var(--coral);
+    background: rgba(240,138,126,0.14);
+    border-radius: 20px;
+    padding: 1.4vw 1.8vw;
+  }
+  .try-together .lbl {
+    font-size: 1.2vw;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--coral);
+    font-weight: 800;
+    display: block;
+    margin-bottom: 0.4vw;
+  }
+  .try-together .txt { font-size: 1.9vw; }
+
+  .hi-line { margin-top: 1.4vw; font-size: 1.35vw; color: var(--milk-faint); }
+
+  .page-dots { position: absolute; bottom: 5%; left: 5%; display: flex; gap: 10px; }
+  .page-dots span {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: rgba(255,249,240,0.25);
+  }
+  .page-dots span.active { background: var(--lamp); }
+</style>
+</head>
+<body>
+
+  <div id="idle">
+    <svg class="moon-badge" viewBox="0 0 140 140">
+      <circle cx="70" cy="70" r="70" fill="var(--night-deep)"/>
+      <circle cx="70" cy="70" r="34" fill="var(--lamp)"/>
+    </svg>
+    <h1>Little Lamplight</h1>
+    <p>Waiting for story time to begin&hellip;</p>
+  </div>
+
+  <div id="reading">
+    <div class="safe">
+      <div class="stage">
+        <div class="scene-pane" id="scenePane"></div>
+        <div class="content-pane">
+          <div class="book-title" id="bookTitle"></div>
+          <div class="sentence" id="sentence"></div>
+          <div class="phonetic" id="phonetic"></div>
+          <div class="try-together">
+            <span class="lbl">Try together</span>
+            <span class="txt" id="prompt"></span>
+          </div>
+          <div class="hi-line" id="hiLine"></div>
+        </div>
+      </div>
+    </div>
+    <div class="page-dots" id="pageDots"></div>
+  </div>
+
+<script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+<script>
+  var NAMESPACE = 'urn:x-cast:com.pentadheeraj.littlelamplight';
+
+  // ---- Scenes: same shapes/colors as the app's Scene.js, translated to plain SVG ----
+  var T = { night: '#332B4E', lamp: '#FFC857', coral: '#F08A7E', milk: '#FFF9F0', ink: '#2E2A3B', skin: '#F5C9A4' };
+
+  function svg(inner) {
+    return '<svg viewBox="0 0 300 190" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
+  }
+
+  function starDots() {
+    return '<circle cx="55" cy="50" r="2" fill="' + T.milk + '" opacity="0.7"/>' +
+           '<circle cx="248" cy="65" r="2.4" fill="' + T.milk + '" opacity="0.6"/>';
+  }
+
+  var SCENES = {
+    moon: svg(
+      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' +
+      '<circle cx="150" cy="85" r="52" fill="' + T.lamp + '" opacity="0.16"/>' +
+      '<circle cx="150" cy="85" r="40" fill="' + T.lamp + '"/>' +
+      starDots() +
+      '<circle cx="90" cy="40" r="2" fill="' + T.milk + '" opacity="0.8"/>' +
+      '<circle cx="220" cy="140" r="2" fill="' + T.milk + '" opacity="0.7"/>'
+    ),
+    stars: svg(
+      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' +
+      '<circle cx="90" cy="60" r="6" fill="' + T.lamp + '"/>' +
+      '<circle cx="150" cy="40" r="4" fill="' + T.lamp + '"/>' +
+      '<circle cx="205" cy="75" r="5" fill="' + T.lamp + '"/>' +
+      '<circle cx="230" cy="115" r="3.5" fill="' + T.lamp + '"/>' +
+      '<circle cx="75" cy="120" r="3" fill="' + T.lamp + '"/>' +
+      starDots()
+    ),
+    cat: svg(
+      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' +
+      '<ellipse cx="150" cy="140" rx="60" ry="34" fill="' + T.coral + '"/>' +
+      '<circle cx="112" cy="98" r="26" fill="' + T.coral + '"/>' +
+      '<path d="M92 82 L100 62 L112 84 Z" fill="' + T.coral + '"/>' +
+      '<path d="M132 82 L124 62 L112 84 Z" fill="' + T.coral + '"/>' +
+      '<circle cx="104" cy="98" r="2.5" fill="' + T.ink + '"/><circle cx="120" cy="98" r="2.5" fill="' + T.ink + '"/>' +
+      starDots()
+    ),
+    child: svg(
+      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' +
+      '<circle cx="150" cy="60" r="38" fill="' + T.lamp + '" opacity="0.16"/>' +
+      '<circle cx="150" cy="98" r="34" fill="' + T.skin + '"/>' +
+      '<path d="M120 84 Q150 60 180 84 Q150 74 120 84" fill="' + T.ink + '"/>' +
+      '<circle cx="138" cy="96" r="4" fill="' + T.ink + '"/><circle cx="162" cy="96" r="4" fill="' + T.ink + '"/>' +
+      '<path d="M140 110 Q150 118 160 110" stroke="' + T.ink + '" stroke-width="3.5" fill="none" stroke-linecap="round"/>' +
+      '<path d="M105 175 Q150 130 195 175 Z" fill="' + T.coral + '"/>' +
+      starDots()
+    )
+  };
+  ['nose', 'eyes', 'tummy', 'toes'].forEach(function (part) {
+    var ring = function (cx, cy, r) { return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" stroke="' + T.lamp + '" stroke-width="3.5" fill="none"/>'; };
+    var body = '<ellipse cx="150" cy="150" rx="46" ry="34" fill="' + T.coral + '"/>' + (part === 'tummy' ? ring(150, 150, 34) : '');
+    var feet = '<ellipse cx="128" cy="184" rx="14" ry="7" fill="' + T.skin + '"/><ellipse cx="172" cy="184" rx="14" ry="7" fill="' + T.skin + '"/>' +
+      (part === 'toes' ? ring(128, 184, 17) + ring(172, 184, 17) : '');
+    var face = '<circle cx="150" cy="95" r="42" fill="' + T.skin + '"/>' +
+      '<path d="M118 78 Q150 62 182 78 Q150 70 118 78" fill="' + T.ink + '"/>' +
+      '<circle cx="136" cy="92" r="' + (part === 'eyes' ? 5.5 : 4) + '" fill="' + T.ink + '"/>' +
+      '<circle cx="164" cy="92" r="' + (part === 'eyes' ? 5.5 : 4) + '" fill="' + T.ink + '"/>' +
+      (part === 'eyes' ? ring(150, 92, 30) : '') +
+      '<ellipse cx="150" cy="104" rx="' + (part === 'nose' ? 8 : 5) + '" ry="' + (part === 'nose' ? 6 : 4) + '" fill="#E8AD84"/>' +
+      (part === 'nose' ? ring(150, 104, 16) : '') +
+      '<path d="M136 114 Q150 122 164 114" stroke="' + T.ink + '" stroke-width="3.5" fill="none" stroke-linecap="round"/>';
+    SCENES['baby' + part.charAt(0).toUpperCase() + part.slice(1)] = svg(
+      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots() + body + feet + face
+    );
+  });
+
+  // ---- Rendering ----
+  var idleEl = document.getElementById('idle');
+  var readingEl = document.getElementById('reading');
+  var scenePane = document.getElementById('scenePane');
+  var bookTitleEl = document.getElementById('bookTitle');
+  var sentenceEl = document.getElementById('sentence');
+  var phoneticEl = document.getElementById('phonetic');
+  var promptEl = document.getElementById('prompt');
+  var hiLineEl = document.getElementById('hiLine');
+  var pageDotsEl = document.getElementById('pageDots');
+
+  function renderPage(data) {
+    idleEl.style.opacity = '0';
+    setTimeout(function () { idleEl.style.display = 'none'; }, 500);
+    readingEl.classList.add('visible');
+
+    scenePane.innerHTML = SCENES[data.scene] || SCENES.moon;
+    bookTitleEl.textContent = data.bookTitle || '';
+    phoneticEl.textContent = '🔈 ' + (data.phonetic || '');
+    promptEl.textContent = data.prompt || '';
+    hiLineEl.textContent = data.hi ? (data.hi + ' — ' + (data.hiTrans || '')) : '';
+
+    var words = data.words || [];
+    var target = (data.targetWord || '').toLowerCase().replace(/[.,!?]/g, '');
+    var hlIndex = typeof data.hlWord === 'number' ? data.hlWord : -1;
+    sentenceEl.innerHTML = words.map(function (w, i) {
+      var clean = w.toLowerCase().replace(/[.,!?]/g, '');
+      var cls = 'word' + (i === hlIndex ? ' hl' : '') + (clean === target ? ' target' : '');
+      return '<span class="' + cls + '">' + w + '</span>';
+    }).join(' ');
+
+    if (typeof data.page === 'number' && typeof data.pageCount === 'number') {
+      var dots = '';
+      for (var i = 0; i < data.pageCount; i++) {
+        dots += '<span class="' + (i === data.page ? 'active' : '') + '"></span>';
+      }
+      pageDotsEl.innerHTML = dots;
+    }
+  }
+
+  function renderIdle() {
+    readingEl.classList.remove('visible');
+    idleEl.style.display = 'flex';
+    idleEl.style.opacity = '1';
+  }
+
+  var context = cast.framework.CastReceiverContext.getInstance();
+  context.addCustomMessageListener(NAMESPACE, function (event) {
+    var data = event.data;
+    if (!data || data.type === 'idle') {
+      renderIdle();
+    } else if (data.type === 'page') {
+      renderPage(data);
+    }
+  });
+
+  var options = new cast.framework.CastReceiverOptions();
+  options.disableIdleTimeout = true;
+  context.start(options);
+</script>
+</body>
+</html>
