@@ -348,7 +348,13 @@
   })();
 
   function celebrate() {
-    try { celebrateAudio.currentTime = 0; celebrateAudio.play(); } catch (e) { /* best-effort */ }
+    // A synchronous throw here (e.g. setting currentTime before the audio
+    // has loaded) must never block the actual play() attempt below it.
+    try { celebrateAudio.currentTime = 0; } catch (e) { /* fine to just play from wherever it is */ }
+    var playPromise = celebrateAudio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(function (err) { console.error('[celebrate] audio play failed', err); });
+    }
     celebrateEl.classList.add('burst');
     setTimeout(function () { celebrateEl.classList.remove('burst'); }, 900);
   }
