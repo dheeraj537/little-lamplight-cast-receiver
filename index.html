@@ -160,6 +160,7 @@
     <div class="glow"><svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="#FFC857"/></svg></div>
   </div>
   <audio id="celebrateAudio" src="celebrate.wav" preload="auto"></audio>
+  <audio id="narrateAudio" preload="auto"></audio>
 
   <div id="idle">
     <svg class="moon-badge" viewBox="0 0 140 140">
@@ -364,7 +365,7 @@
   // to a cast receiver, and browser speech synthesis has no voices
   // available on Chromecast's embedded Chromium, so real audio files (the
   // same reliable mechanism as the celebration chime) stand in for it.
-  var narrateAudio = new Audio();
+  var narrateAudio = document.getElementById('narrateAudio');
   function speak(book, page) {
     if (!book || typeof page !== 'number') return;
     narrateAudio.src = 'narrate/' + book + '-' + page + '.wav';
