@@ -124,9 +124,42 @@
     background: rgba(255,249,240,0.25);
   }
   .page-dots span.active { background: var(--lamp); }
+
+  /* ---------- Celebration burst ---------- */
+  #celebrate {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    z-index: 10;
+  }
+  #celebrate.burst { opacity: 1; }
+  #celebrate .glow {
+    width: 180px; height: 180px; border-radius: 50%;
+    background: rgba(255,200,87,0.28);
+    display: flex; align-items: center; justify-content: center;
+    transform: scale(0.4);
+    transition: transform 0.5s cubic-bezier(.34,1.56,.64,1);
+  }
+  #celebrate.burst .glow { transform: scale(1); }
+  #celebrate .glow svg { width: 70px; height: 70px; }
+  #celebrate .particle {
+    position: absolute;
+    width: 26px; height: 26px;
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+    transition: transform 0.55s ease-out, opacity 0.55s ease-out;
+  }
+  #celebrate.burst .particle { opacity: 1; transform: var(--to) scale(1); }
 </style>
 </head>
 <body>
+
+  <div id="celebrate">
+    <div class="glow"><svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="#FFC857"/></svg></div>
+  </div>
+  <audio id="celebrateAudio" src="celebrate.wav" preload="auto"></audio>
 
   <div id="idle">
     <svg class="moon-badge" viewBox="0 0 140 140">
@@ -228,6 +261,64 @@
     );
   });
 
+  var NIGHT_SOFT = '#4A4170', NIGHT_DEEP = '#2A2342';
+  ['wheels', 'beep', 'wave', 'home'].forEach(function (variant) {
+    var busX = variant === 'home' ? -30 : 0;
+    var ring = function (cx, cy, r) { return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" stroke="' + T.lamp + '" stroke-width="3.5" fill="none"/>'; };
+    var bus = '<g transform="translate(' + busX + ' 0)">' +
+      '<rect x="70" y="68" width="160" height="70" rx="16" fill="' + T.coral + '"/>' +
+      '<rect x="86" y="80" width="30" height="24" rx="6" fill="' + T.lamp + '"/>' +
+      '<rect x="128" y="80" width="30" height="24" rx="6" fill="' + T.lamp + '"/>' +
+      '<rect x="170" y="80" width="30" height="24" rx="6" fill="' + T.lamp + '"/>' +
+      '<circle cx="108" cy="140" r="13" fill="' + T.ink + '"/><circle cx="108" cy="140" r="5" fill="' + T.milk + '"/>' +
+      '<circle cx="192" cy="140" r="13" fill="' + T.ink + '"/><circle cx="192" cy="140" r="5" fill="' + T.milk + '"/>' +
+      (variant === 'wheels' ? '<circle cx="108" cy="140" r="19" stroke="' + T.lamp + '" stroke-width="3.5" fill="none"/><circle cx="192" cy="140" r="19" stroke="' + T.lamp + '" stroke-width="3.5" fill="none"/>' : '') +
+      (variant === 'beep' ? '<path d="M240 96 Q252 103 240 110" stroke="' + T.lamp + '" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M250 88 Q268 103 250 118" stroke="' + T.lamp + '" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/>' : '') +
+      (variant === 'wave' ? '<path d="M195 98 Q222 86 244 74" stroke="' + T.skin + '" stroke-width="9" fill="none" stroke-linecap="round"/><circle cx="248" cy="72" r="10" fill="' + T.skin + '"/><circle cx="248" cy="72" r="17" stroke="' + T.lamp + '" stroke-width="3" fill="none"/><path d="M262 58 Q270 72 262 86" stroke="' + T.lamp + '" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/>' : '') +
+      '</g>';
+    var house = variant === 'home'
+      ? '<rect x="228" y="106" width="46" height="42" rx="6" fill="' + NIGHT_SOFT + '"/><path d="M222 110 L251 84 L280 110 Z" fill="' + T.coral + '"/><rect x="244" y="122" width="14" height="14" rx="3" fill="' + T.lamp + '"/>'
+      : '';
+    SCENES['bus' + variant.charAt(0).toUpperCase() + variant.slice(1)] = svg(
+      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots() +
+      '<rect x="20" y="148" width="260" height="5" rx="2.5" fill="' + NIGHT_SOFT + '"/>' + bus + house
+    );
+  });
+
+  ['hungry', 'fish', 'yum', 'happy'].forEach(function (variant) {
+    var smile = (variant === 'happy' || variant === 'yum');
+    var cat = '<ellipse cx="120" cy="140" rx="52" ry="30" fill="' + T.coral + '"/>' +
+      '<circle cx="120" cy="92" r="30" fill="' + T.coral + '"/>' +
+      '<path d="M96 74 L104 50 L118 76 Z" fill="' + T.coral + '"/>' +
+      '<path d="M144 74 L136 50 L122 76 Z" fill="' + T.coral + '"/>' +
+      '<circle cx="110" cy="90" r="3.5" fill="' + T.ink + '"/><circle cx="130" cy="90" r="3.5" fill="' + T.ink + '"/>' +
+      '<path d="M88 98 L102 100 M88 106 L102 104" stroke="' + T.ink + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M152 98 L138 100 M152 106 L138 104" stroke="' + T.ink + '" stroke-width="2" stroke-linecap="round"/>' +
+      (smile
+        ? '<path d="M112 102 Q120 110 128 102" stroke="' + T.ink + '" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+        : '<ellipse cx="120" cy="104" rx="4" ry="3" fill="' + T.ink + '"/>');
+    var extras = '';
+    if (variant === 'hungry') {
+      extras = '<ellipse cx="225" cy="150" rx="34" ry="12" fill="' + NIGHT_DEEP + '"/><ellipse cx="225" cy="146" rx="34" ry="10" fill="' + NIGHT_SOFT + '"/>' +
+        '<path d="M215 120 Q225 108 235 120" stroke="' + T.milk + '" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.6"/>';
+    }
+    if (variant === 'fish' || variant === 'yum') {
+      extras += '<ellipse cx="222" cy="128" rx="26" ry="13" fill="' + T.lamp + '"/><path d="M244 128 L262 116 L262 140 Z" fill="' + T.lamp + '"/><circle cx="212" cy="125" r="2.5" fill="' + T.ink + '"/>';
+    }
+    if (variant === 'fish') {
+      extras += '<path d="M158 88 Q166 84 162 76 M170 94 Q178 90 174 82" stroke="' + T.milk + '" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>';
+    }
+    if (variant === 'yum') {
+      extras += '<path d="M186 128 Q172 118 158 112" stroke="' + T.lamp + '" stroke-width="3" stroke-dasharray="6 6" fill="none" stroke-linecap="round" opacity="0.8"/>';
+    }
+    if (variant === 'happy') {
+      extras += '<g transform="rotate(12 165 72)"><circle cx="160" cy="68" r="5.5" fill="' + T.lamp + '"/><circle cx="170" cy="68" r="5.5" fill="' + T.lamp + '"/><path d="M154.5 70 L175.5 70 L165 84 Z" fill="' + T.lamp + '"/></g>';
+    }
+    SCENES['cat' + variant.charAt(0).toUpperCase() + variant.slice(1)] = svg(
+      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots() + cat + extras
+    );
+  });
+
   // ---- Rendering ----
   var idleEl = document.getElementById('idle');
   var readingEl = document.getElementById('reading');
@@ -238,6 +329,29 @@
   var promptEl = document.getElementById('prompt');
   var hiLineEl = document.getElementById('hiLine');
   var pageDotsEl = document.getElementById('pageDots');
+  var celebrateEl = document.getElementById('celebrate');
+  var celebrateAudio = document.getElementById('celebrateAudio');
+
+  // Build the 6 burst particles once, matching the phone app's animation.
+  (function setupParticles() {
+    var count = 6;
+    for (var i = 0; i < count; i++) {
+      var angle = (i / count) * Math.PI * 2;
+      var dx = Math.cos(angle) * 130;
+      var dy = Math.sin(angle) * 130;
+      var el = document.createElement('div');
+      el.className = 'particle';
+      el.style.setProperty('--to', 'translate(' + dx + 'px, ' + dy + 'px)');
+      el.innerHTML = '<svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="' + (i % 2 === 0 ? T.lamp : T.coral) + '"/></svg>';
+      celebrateEl.appendChild(el);
+    }
+  })();
+
+  function celebrate() {
+    try { celebrateAudio.currentTime = 0; celebrateAudio.play(); } catch (e) { /* best-effort */ }
+    celebrateEl.classList.add('burst');
+    setTimeout(function () { celebrateEl.classList.remove('burst'); }, 900);
+  }
 
   function renderPage(data) {
     idleEl.style.opacity = '0';
@@ -281,6 +395,8 @@
       renderIdle();
     } else if (data.type === 'page') {
       renderPage(data);
+    } else if (data.type === 'celebrate') {
+      celebrate();
     }
   });
 
