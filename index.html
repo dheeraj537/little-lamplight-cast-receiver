@@ -359,15 +359,19 @@
     setTimeout(function () { celebrateEl.classList.remove('burst'); }, 900);
   }
 
-  // "Listen first" while casting: the TV speaks the line itself, since
-  // there's no way to route the phone's own TTS audio to a cast receiver.
-  function speak(text) {
-    if (!text || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    var utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'en-US';
-    utter.rate = 0.85;
-    window.speechSynthesis.speak(utter);
+  // "Listen first" while casting: plays a pre-recorded narration clip for
+  // the given book+page — there's no way to route the phone's own TTS audio
+  // to a cast receiver, and browser speech synthesis has no voices
+  // available on Chromecast's embedded Chromium, so real audio files (the
+  // same reliable mechanism as the celebration chime) stand in for it.
+  var narrateAudio = new Audio();
+  function speak(book, page) {
+    if (!book || typeof page !== 'number') return;
+    narrateAudio.src = 'narrate/' + book + '-' + page + '.wav';
+    var playPromise = narrateAudio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(function (err) { console.error('[speak] narration play failed', err); });
+    }
   }
 
   function renderPage(data) {
@@ -415,7 +419,7 @@
     } else if (data.type === 'celebrate') {
       celebrate();
     } else if (data.type === 'speak') {
-      speak(data.text);
+      speak(data.book, data.page);
     }
   });
 
