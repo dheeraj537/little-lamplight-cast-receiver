@@ -672,10 +672,11 @@
   }
 
   function copycatSpeak(text) {
+    // Visuals only — the audio is streamed separately (copycatEcho*) and
+    // played by playEcho, since a basic Chromecast can't synthesize speech.
     copycatBubble.textContent = '\u201C' + (text || '') + '\u201D';
     copycatBubble.classList.add('show');
     copycatCat.classList.add('talking');
-    catSpeak(text);
     clearTimeout(copycatTimer);
     var dur = Math.max(900, Math.min(6000, (text || '').length * 90));
     copycatTimer = setTimeout(function () { copycatCat.classList.remove('talking'); }, dur);
@@ -714,8 +715,9 @@
   function playEcho(dataUri) {
     sfxLoaded = 'echo';
     sfxAudio.pause();
-    sfxAudio.playbackRate = 1.5; // chipmunk pitch = cat voice
-    setPreservePitch(false);
+    // Pitch is baked into the streamed WAV by the phone, so play it normally.
+    sfxAudio.playbackRate = 1.0;
+    setPreservePitch(true);
     copycatCat.classList.add('talking');
     sfxAudio.onerror = function () { copycatCat.classList.remove('talking'); };
     sfxAudio.oncanplay = function () {
