@@ -582,9 +582,46 @@
   }
 
   // ---- Copycat: Mochi the cat mirrors the phone's echo game on the TV ----
-  // The cat's *voice* always comes from the phone (cast receivers have no
-  // reliable speech synthesis); the TV owns the visuals — mouth flap while
+  // The cat speaks from the TV via the Web Speech API when this device has
+  // voices; if it doesn't, we tell the phone (copycatCaps) so it speaks the
+  // line itself instead. The TV always owns the visuals — mouth flap while
   // talking, a speech bubble of what was heard, and the trick animations.
+  var ttsReady = false;
+  var ttsVoice = null;
+  var lastSenderId = undefined;
+
+  function refreshVoices() {
+    if (!('speechSynthesis' in window)) return;
+    var voices = window.speechSynthesis.getVoices() || [];
+    if (!voices.length) return;
+    var wasReady = ttsReady;
+    ttsVoice = voices.filter(function (v) { return /^en/i.test(v.lang || ''); })[0] || voices[0];
+    ttsReady = true;
+    // Voices often load asynchronously — once they arrive, let the phone know
+    // it can hand the voice over to the TV.
+    if (!wasReady) reportCaps();
+  }
+
+  function reportCaps() {
+    try { context.sendCustomMessage(NAMESPACE, lastSenderId, { type: 'copycatCaps', canSpeak: ttsReady }); } catch (e) {}
+  }
+
+  function catSpeak(text) {
+    if (!ttsReady || !text) return;
+    try {
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.pitch = 2.0; u.rate = 0.95; u.lang = 'en-US';
+      if (ttsVoice) u.voice = ttsVoice;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  if ('speechSynthesis' in window) {
+    refreshVoices();
+    window.speechSynthesis.onvoiceschanged = refreshVoices;
+  }
+
   function copycatSvg() {
     return '<svg viewBox="0 0 200 200">' +
       '<path d="M150 168 Q188 158 178 118" stroke="' + T.coral + '" stroke-width="16" fill="none" stroke-linecap="round"/>' +
@@ -625,13 +662,14 @@
     copycatBubble.textContent = '\u201C' + (text || '') + '\u201D';
     copycatBubble.classList.add('show');
     copycatCat.classList.add('talking');
+    catSpeak(text);
     clearTimeout(copycatTimer);
     var dur = Math.max(900, Math.min(6000, (text || '').length * 90));
     copycatTimer = setTimeout(function () { copycatCat.classList.remove('talking'); }, dur);
   }
 
   function copycatAction(action, say) {
-    if (say) { copycatBubble.textContent = say; copycatBubble.classList.add('show'); }
+    if (say) { copycatBubble.textContent = say; copycatBubble.classList.add('show'); catSpeak(say); }
     copycatCat.classList.add('talking');
     var cls = 'act-' + action;
     copycatCat.classList.remove('act-jump', 'act-spin', 'act-dance', 'act-meow');
@@ -654,6 +692,7 @@
   var context = cast.framework.CastReceiverContext.getInstance();
   context.addCustomMessageListener(NAMESPACE, function (event) {
     var data = event.data;
+    if (event.senderId) lastSenderId = event.senderId;
     if (!data || data.type === 'idle') {
       renderIdle();
     } else if (data.type === 'page') {
@@ -664,6 +703,7 @@
       speak(data.book, data.page);
     } else if (data.type === 'copycatEnter') {
       copycatEnter(data.promptWord, data.promptLabel);
+      reportCaps();
     } else if (data.type === 'copycatPrompt') {
       setCopycatPrompt(data.promptWord, data.promptLabel);
     } else if (data.type === 'copycatSpeak') {
