@@ -488,7 +488,19 @@
   var sfxLoaded = null; // key of whatever's currently loaded/loading in sfxAudio
   var narratePreloadKey = null; // book+page we'd like preloaded once sfxAudio is free
 
+  function setPreservePitch(on) {
+    try {
+      if ('preservesPitch' in sfxAudio) sfxAudio.preservesPitch = on;
+      sfxAudio.mozPreservesPitch = on;
+      sfxAudio.webkitPreservesPitch = on;
+    } catch (e) {}
+  }
+
   function playSfx(key, src) {
+    // Narration/trick clips play at their natural pitch (echo playback below
+    // is the only thing that speeds up for the cat effect).
+    sfxAudio.playbackRate = 1.0;
+    setPreservePitch(true);
     var tryPlay = function () {
       var playPromise = sfxAudio.play();
       if (playPromise && typeof playPromise.catch === 'function') {
@@ -513,6 +525,7 @@
   // Once whatever's playing finishes, pick up any narration preload that
   // got deferred while the element was busy (see preloadNarration below).
   sfxAudio.addEventListener('ended', function () {
+    if (typeof copycatCat !== 'undefined' && copycatCat) copycatCat.classList.remove('talking');
     if (narratePreloadKey && sfxLoaded !== narratePreloadKey) {
       var parts = narratePreloadKey.replace('narrate:', '').split('-');
       preloadNarration(parts[0], Number(parts[1]));
@@ -693,6 +706,27 @@
     copycatEl.classList.remove('visible');
   }
 
+  // Live echo audio streamed from the phone (basic Chromecast can't synthesize
+  // speech, so the phone records the utterance and sends the WAV in base64
+  // chunks). We reassemble it and play it back sped up for the cat voice.
+  var echoBuffers = {};
+
+  function playEcho(dataUri) {
+    sfxLoaded = 'echo';
+    sfxAudio.pause();
+    sfxAudio.playbackRate = 1.5; // chipmunk pitch = cat voice
+    setPreservePitch(false);
+    copycatCat.classList.add('talking');
+    sfxAudio.onerror = function () { copycatCat.classList.remove('talking'); };
+    sfxAudio.oncanplay = function () {
+      sfxAudio.oncanplay = null;
+      var p = sfxAudio.play();
+      if (p && typeof p.catch === 'function') p.catch(function () {});
+    };
+    sfxAudio.src = dataUri;
+    sfxAudio.load();
+  }
+
   var context = cast.framework.CastReceiverContext.getInstance();
   context.addCustomMessageListener(NAMESPACE, function (event) {
     var data = event.data;
@@ -714,6 +748,14 @@
       copycatSpeak(data.text);
     } else if (data.type === 'copycatAction') {
       copycatAction(data.action, data.say);
+    } else if (data.type === 'copycatEchoStart') {
+      echoBuffers[data.id] = { total: data.total, parts: [] };
+    } else if (data.type === 'copycatEchoChunk') {
+      var buf = echoBuffers[data.id];
+      if (buf) buf.parts[data.i] = data.data;
+    } else if (data.type === 'copycatEchoEnd') {
+      var b = echoBuffers[data.id];
+      if (b) { playEcho('data:audio/wav;base64,' + b.parts.join('')); delete echoBuffers[data.id]; }
     } else if (data.type === 'copycatExit') {
       copycatExit();
       renderIdle();
