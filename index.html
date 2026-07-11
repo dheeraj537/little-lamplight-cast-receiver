@@ -319,6 +319,86 @@
     );
   });
 
+  // Farm scenes: night barn silhouette at the left, one animal spotlit with
+  // the gold ring per page; the sleep page shows all three asleep + moon.
+  (function buildFarm() {
+    var ring = function (cx, cy, r) { return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" stroke="' + T.lamp + '" stroke-width="3.5" fill="none"/>'; };
+    var eyes = function (x1, x2, y, closed) {
+      return closed
+        ? '<path d="M' + (x1 - 3) + ' ' + y + ' Q' + x1 + ' ' + (y + 3) + ' ' + (x1 + 3) + ' ' + y + ' M' + (x2 - 3) + ' ' + y + ' Q' + x2 + ' ' + (y + 3) + ' ' + (x2 + 3) + ' ' + y + '" stroke="' + T.ink + '" stroke-width="2" fill="none" stroke-linecap="round"/>'
+        : '<circle cx="' + x1 + '" cy="' + y + '" r="2.5" fill="' + T.ink + '"/><circle cx="' + x2 + '" cy="' + y + '" r="2.5" fill="' + T.ink + '"/>';
+    };
+    var barn = function (asleep) {
+      return '<rect x="24" y="86" width="64" height="56" rx="4" fill="' + NIGHT_DEEP + '"/>' +
+        '<path d="M18 90 L56 62 L94 90 Z" fill="' + NIGHT_DEEP + '"/>' +
+        '<rect x="48" y="104" width="16" height="16" rx="3" fill="' + (asleep ? NIGHT_SOFT : T.lamp) + '"/>' +
+        '<rect x="16" y="142" width="268" height="5" rx="2.5" fill="' + NIGHT_SOFT + '"/>';
+    };
+    var cow = function (asleep) {
+      return '<rect x="160" y="92" width="76" height="42" rx="18" fill="' + T.milk + '"/>' +
+        '<ellipse cx="188" cy="108" rx="12" ry="9" fill="' + T.ink + '" opacity="0.85"/>' +
+        '<circle cx="234" cy="88" r="22" fill="' + T.milk + '"/>' +
+        '<path d="M216 72 L222 60 L230 72 Z" fill="' + T.milk + '"/>' +
+        '<path d="M252 72 L246 60 L238 72 Z" fill="' + T.milk + '"/>' +
+        '<ellipse cx="234" cy="98" rx="10" ry="7" fill="#E8AD84"/>' +
+        eyes(228, 242, 84, asleep) +
+        '<rect x="168" y="130" width="7" height="14" rx="3" fill="' + T.milk + '"/>' +
+        '<rect x="216" y="130" width="7" height="14" rx="3" fill="' + T.milk + '"/>' +
+        (asleep ? '' : ring(210, 100, 58));
+    };
+    var duck = function (asleep) {
+      return '<ellipse cx="200" cy="132" rx="52" ry="12" fill="' + NIGHT_DEEP + '"/>' +
+        '<ellipse cx="200" cy="118" rx="24" ry="15" fill="' + T.lamp + '"/>' +
+        '<circle cx="220" cy="100" r="12" fill="' + T.lamp + '"/>' +
+        '<path d="M231 98 L244 102 L231 106 Z" fill="#F2A93B"/>' +
+        (asleep
+          ? '<path d="M215 97 Q218 100 221 97" stroke="' + T.ink + '" stroke-width="2" fill="none" stroke-linecap="round"/>'
+          : '<circle cx="221" cy="97" r="2.5" fill="' + T.ink + '"/>' +
+            '<ellipse cx="200" cy="132" rx="34" ry="7" stroke="' + T.milk + '" stroke-width="2" fill="none" opacity="0.5"/>' +
+            ring(206, 112, 46));
+    };
+    var dog = function (asleep) {
+      return '<ellipse cx="196" cy="124" rx="34" ry="20" fill="' + T.coral + '"/>' +
+        '<circle cx="228" cy="102" r="18" fill="' + T.coral + '"/>' +
+        '<ellipse cx="216" cy="92" rx="6" ry="11" fill="' + T.coral + '" transform="rotate(-24 216 92)"/>' +
+        '<ellipse cx="240" cy="92" rx="6" ry="11" fill="' + T.coral + '" transform="rotate(24 240 92)"/>' +
+        '<ellipse cx="230" cy="110" rx="5" ry="4" fill="' + T.ink + '"/>' +
+        eyes(222, 236, 100, asleep) +
+        '<path d="M164 118 Q150 106 156 96" stroke="' + T.coral + '" stroke-width="7" fill="none" stroke-linecap="round"/>' +
+        (asleep ? '' : ring(206, 110, 50));
+    };
+    var base = function (asleep) {
+      return '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots() + barn(asleep);
+    };
+    SCENES.farmCow = svg(base(false) + cow(false));
+    SCENES.farmDuck = svg(base(false) + duck(false));
+    SCENES.farmDog = svg(base(false) + dog(false));
+    SCENES.farmSleep = svg(base(true) +
+      '<path d="M232 34 A22 22 0 1 0 254 60 A17 17 0 0 1 232 34 Z" fill="' + T.lamp + '"/>' +
+      '<g transform="translate(-42 26) scale(0.62)">' + cow(true) + '</g>' +
+      '<g transform="translate(-58 74) scale(0.62)">' + duck(true) + '</g>' +
+      '<g transform="translate(28 60) scale(0.62)">' + dog(true) + '</g>');
+  })();
+
+  // Peekaboo-only scenes (the eyes/nose pages reuse the baby scenes above).
+  (function buildPeekaboo() {
+    var face = '<circle cx="150" cy="95" r="42" fill="' + T.skin + '"/>' +
+      '<path d="M118 78 Q150 62 182 78 Q150 70 118 78" fill="' + T.ink + '"/>' +
+      '<circle cx="136" cy="92" r="4" fill="' + T.ink + '"/><circle cx="164" cy="92" r="4" fill="' + T.ink + '"/>' +
+      '<ellipse cx="150" cy="104" rx="5" ry="4" fill="#E8AD84"/>';
+    var bg = '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots();
+    SCENES.babyBoo = svg(bg + face +
+      '<ellipse cx="103" cy="92" rx="14" ry="17" fill="' + T.skin + '" transform="rotate(-18 103 92)"/>' +
+      '<ellipse cx="197" cy="92" rx="14" ry="17" fill="' + T.skin + '" transform="rotate(18 197 92)"/>' +
+      '<path d="M96 66 L102 72 M110 60 L114 68" stroke="' + T.lamp + '" stroke-width="3" stroke-linecap="round"/>' +
+      '<path d="M204 66 L198 72 M190 60 L186 68" stroke="' + T.lamp + '" stroke-width="3" stroke-linecap="round"/>' +
+      '<path d="M138 112 Q150 124 162 112" stroke="' + T.ink + '" stroke-width="3.5" fill="none" stroke-linecap="round"/>');
+    SCENES.babySmile = svg(bg + face +
+      '<path d="M130 108 Q150 128 170 108" stroke="' + T.ink + '" stroke-width="4" fill="none" stroke-linecap="round"/>' +
+      '<circle cx="150" cy="95" r="56" stroke="' + T.lamp + '" stroke-width="3" fill="none" stroke-dasharray="10 12" opacity="0.8"/>' +
+      '<circle cx="150" cy="37" r="7" fill="' + T.lamp + '"/>');
+  })();
+
   // ---- Rendering ----
   var idleEl = document.getElementById('idle');
   var readingEl = document.getElementById('reading');
