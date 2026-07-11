@@ -152,6 +152,47 @@
     transition: transform 0.55s ease-out, opacity 0.55s ease-out;
   }
   #celebrate.burst .particle { opacity: 1; transform: var(--to) scale(1); }
+
+  /* ---------- Copycat screen ---------- */
+  #copycat {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.4s ease;
+  }
+  #copycat.visible { display: flex; opacity: 1; }
+  #copycatBubble {
+    max-width: 70%;
+    background: var(--milk); color: var(--night-deep);
+    font-size: 2.6vw; font-weight: 800; text-align: center;
+    padding: 1.4vw 2.6vw; border-radius: 44px;
+    opacity: 0; transform: translateY(12px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  #copycatBubble.show { opacity: 1; transform: translateY(0); }
+  #copycatCatWrap { animation: catbob 2.6s ease-in-out infinite; margin: 2.4vw 0; }
+  #copycatCat { width: 32vw; max-width: 440px; }
+  #copycatCat svg { width: 100%; height: auto; display: block; }
+  #copycatPrompt {
+    border: 4px dashed var(--coral);
+    background: rgba(240,138,126,0.14);
+    border-radius: 22px; padding: 1.2vw 2.6vw; font-size: 2vw;
+  }
+  #copycatPrompt b { color: var(--lamp); }
+
+  @keyframes catbob { 0%, 100% { transform: translateY(7px); } 50% { transform: translateY(-9px); } }
+  .cat-mouth-open { opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .talking .cat-mouth-open { opacity: 1; animation: chomp 0.34s ease-in-out infinite; }
+  .talking .cat-mouth-closed { opacity: 0; }
+  @keyframes chomp { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+
+  #copycatCat.act-jump { animation: cjump 0.6s ease; }
+  #copycatCat.act-spin { animation: cspin 0.8s ease-in-out; }
+  #copycatCat.act-dance { animation: cdance 0.9s ease-in-out; }
+  #copycatCat.act-meow { animation: cmeow 0.5s ease; }
+  @keyframes cjump { 0% { transform: translateY(0); } 45% { transform: translateY(-18%); } 60% { transform: translateY(-18%); } 100% { transform: translateY(0); } }
+  @keyframes cspin { to { transform: rotate(360deg); } }
+  @keyframes cdance { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(15deg); } 40% { transform: rotate(-15deg); } 60% { transform: rotate(15deg); } 80% { transform: rotate(-15deg); } }
+  @keyframes cmeow { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.14); } }
 </style>
 </head>
 <body>
@@ -187,6 +228,12 @@
       </div>
     </div>
     <div class="page-dots" id="pageDots"></div>
+  </div>
+
+  <div id="copycat">
+    <div id="copycatBubble"></div>
+    <div id="copycatCatWrap"><div id="copycatCat"></div></div>
+    <div id="copycatPrompt"></div>
   </div>
 
 <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
@@ -410,6 +457,11 @@
   var hiLineEl = document.getElementById('hiLine');
   var pageDotsEl = document.getElementById('pageDots');
   var celebrateEl = document.getElementById('celebrate');
+  var copycatEl = document.getElementById('copycat');
+  var copycatCat = document.getElementById('copycatCat');
+  var copycatBubble = document.getElementById('copycatBubble');
+  var copycatPromptEl = document.getElementById('copycatPrompt');
+  var copycatTimer = null;
 
   // Build the 6 burst particles once, matching the phone app's animation.
   (function setupParticles() {
@@ -492,6 +544,7 @@
   }
 
   function renderPage(data) {
+    copycatExit();
     idleEl.style.opacity = '0';
     setTimeout(function () { idleEl.style.display = 'none'; }, 500);
     readingEl.classList.add('visible');
@@ -523,8 +576,79 @@
 
   function renderIdle() {
     readingEl.classList.remove('visible');
+    copycatEl.classList.remove('visible');
     idleEl.style.display = 'flex';
     idleEl.style.opacity = '1';
+  }
+
+  // ---- Copycat: Mochi the cat mirrors the phone's echo game on the TV ----
+  // The cat's *voice* always comes from the phone (cast receivers have no
+  // reliable speech synthesis); the TV owns the visuals — mouth flap while
+  // talking, a speech bubble of what was heard, and the trick animations.
+  function copycatSvg() {
+    return '<svg viewBox="0 0 200 200">' +
+      '<path d="M150 168 Q188 158 178 118" stroke="' + T.coral + '" stroke-width="16" fill="none" stroke-linecap="round"/>' +
+      '<ellipse cx="100" cy="158" rx="60" ry="40" fill="' + T.coral + '"/>' +
+      '<ellipse cx="100" cy="168" rx="34" ry="22" fill="' + T.milk + '" opacity="0.9"/>' +
+      '<path d="M58 66 L48 24 L92 52 Z" fill="' + T.coral + '"/>' +
+      '<path d="M142 66 L152 24 L108 52 Z" fill="' + T.coral + '"/>' +
+      '<circle cx="100" cy="96" r="52" fill="' + T.coral + '"/>' +
+      '<circle cx="66" cy="108" r="13" fill="' + T.milk + '" opacity="0.35"/>' +
+      '<circle cx="134" cy="108" r="13" fill="' + T.milk + '" opacity="0.35"/>' +
+      '<circle cx="80" cy="90" r="12" fill="' + T.milk + '"/>' +
+      '<circle cx="120" cy="90" r="12" fill="' + T.milk + '"/>' +
+      '<circle cx="82" cy="92" r="6" fill="' + T.ink + '"/>' +
+      '<circle cx="118" cy="92" r="6" fill="' + T.ink + '"/>' +
+      '<path d="M94 106 L106 106 L100 113 Z" fill="' + T.ink + '"/>' +
+      '<path class="cat-mouth-closed" d="M100 113 L100 120 M100 120 Q90 129 82 121 M100 120 Q110 129 118 121" stroke="' + T.ink + '" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+      '<ellipse class="cat-mouth-open" cx="100" cy="124" rx="11" ry="9" fill="' + T.ink + '"/>' +
+      '<g stroke="' + T.ink + '" stroke-width="2.2" stroke-linecap="round" opacity="0.7">' +
+      '<path d="M60 110 L28 104 M60 118 L30 120" fill="none"/><path d="M140 110 L172 104 M140 118 L170 120" fill="none"/></g>' +
+      '</svg>';
+  }
+
+  function setCopycatPrompt(word, label) {
+    copycatPromptEl.innerHTML = 'Say <b>\u201C' + (word || '') + '\u201D</b> to make me ' + (label || '').toLowerCase() + '!';
+  }
+
+  function copycatEnter(word, label) {
+    idleEl.style.opacity = '0';
+    setTimeout(function () { idleEl.style.display = 'none'; }, 500);
+    readingEl.classList.remove('visible');
+    if (!copycatCat.firstChild) copycatCat.innerHTML = copycatSvg();
+    setCopycatPrompt(word, label);
+    copycatBubble.classList.remove('show');
+    copycatEl.classList.add('visible');
+  }
+
+  function copycatSpeak(text) {
+    copycatBubble.textContent = '\u201C' + (text || '') + '\u201D';
+    copycatBubble.classList.add('show');
+    copycatCat.classList.add('talking');
+    clearTimeout(copycatTimer);
+    var dur = Math.max(900, Math.min(6000, (text || '').length * 90));
+    copycatTimer = setTimeout(function () { copycatCat.classList.remove('talking'); }, dur);
+  }
+
+  function copycatAction(action, say) {
+    if (say) { copycatBubble.textContent = say; copycatBubble.classList.add('show'); }
+    copycatCat.classList.add('talking');
+    var cls = 'act-' + action;
+    copycatCat.classList.remove('act-jump', 'act-spin', 'act-dance', 'act-meow');
+    void copycatCat.offsetWidth; // reflow so replaying the same trick restarts the animation
+    copycatCat.classList.add(cls);
+    copycatCat.addEventListener('animationend', function handler() {
+      copycatCat.classList.remove(cls);
+      copycatCat.removeEventListener('animationend', handler);
+    });
+    clearTimeout(copycatTimer);
+    copycatTimer = setTimeout(function () { copycatCat.classList.remove('talking'); }, 1300);
+  }
+
+  function copycatExit() {
+    copycatCat.classList.remove('talking');
+    copycatBubble.classList.remove('show');
+    copycatEl.classList.remove('visible');
   }
 
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -538,6 +662,17 @@
       celebrate();
     } else if (data.type === 'speak') {
       speak(data.book, data.page);
+    } else if (data.type === 'copycatEnter') {
+      copycatEnter(data.promptWord, data.promptLabel);
+    } else if (data.type === 'copycatPrompt') {
+      setCopycatPrompt(data.promptWord, data.promptLabel);
+    } else if (data.type === 'copycatSpeak') {
+      copycatSpeak(data.text);
+    } else if (data.type === 'copycatAction') {
+      copycatAction(data.action, data.say);
+    } else if (data.type === 'copycatExit') {
+      copycatExit();
+      renderIdle();
     }
   });
 
