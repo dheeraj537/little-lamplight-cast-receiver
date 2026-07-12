@@ -729,6 +729,33 @@
     sfxAudio.load();
   }
 
+  // Natural OpenAI storyteller audio streamed from the phone as MP3 chunks
+  // (same channel pattern as copycat echo). Replaces the old robotic narrate/
+  // Web Speech path for reading + Jugnu while casting.
+  var naturalBuffers = {};
+
+  function playNaturalAudio(dataUri) {
+    sfxLoaded = 'natural';
+    sfxAudio.pause();
+    sfxAudio.playbackRate = 1.0;
+    setPreservePitch(true);
+    sfxAudio.onerror = function () { console.error('[natural] play failed', sfxAudio.error); };
+    sfxAudio.oncanplay = function () {
+      sfxAudio.oncanplay = null;
+      var p = sfxAudio.play();
+      if (p && typeof p.catch === 'function') p.catch(function (err) { console.error('[natural] play()', err); });
+    };
+    sfxAudio.src = dataUri;
+    sfxAudio.load();
+  }
+
+  function stopNaturalAudio() {
+    if (sfxLoaded === 'natural' || (sfxLoaded && String(sfxLoaded).indexOf('natural:') === 0)) {
+      try { sfxAudio.pause(); sfxAudio.removeAttribute('src'); sfxAudio.load(); } catch (e) {}
+      sfxLoaded = null;
+    }
+  }
+
   var context = cast.framework.CastReceiverContext.getInstance();
   context.addCustomMessageListener(NAMESPACE, function (event) {
     var data = event.data;
@@ -740,7 +767,22 @@
     } else if (data.type === 'celebrate') {
       celebrate();
     } else if (data.type === 'speak') {
+      // Legacy pre-recorded WAV — kept as offline fallback if the phone
+      // couldn't stream natural audio.
       speak(data.book, data.page);
+    } else if (data.type === 'naturalSpeakStart') {
+      naturalBuffers[data.id] = { total: data.total, parts: [], mime: data.mime || 'audio/mpeg' };
+    } else if (data.type === 'naturalSpeakChunk') {
+      var nbuf = naturalBuffers[data.id];
+      if (nbuf) nbuf.parts[data.i] = data.data;
+    } else if (data.type === 'naturalSpeakEnd') {
+      var nb = naturalBuffers[data.id];
+      if (nb) {
+        playNaturalAudio('data:' + (nb.mime || 'audio/mpeg') + ';base64,' + nb.parts.join(''));
+        delete naturalBuffers[data.id];
+      }
+    } else if (data.type === 'naturalSpeakStop') {
+      stopNaturalAudio();
     } else if (data.type === 'copycatEnter') {
       copycatEnter(data.promptWord, data.promptLabel);
       reportCaps();
