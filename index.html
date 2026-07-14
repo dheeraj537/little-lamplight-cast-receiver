@@ -88,11 +88,19 @@
   .scene-pane {
     flex: 0 0 42%;
     display: flex; align-items: center; justify-content: center;
+    will-change: transform;
   }
   .scene-pane svg {
     width: 100%; height: auto; max-height: 78vh;
-    filter: drop-shadow(0 12px 40px rgba(0,0,0,0.35)) drop-shadow(0 0 24px rgba(255,224,102,0.18));
     border-radius: 28px;
+    /* No CSS filter here — filters kill Chromecast frame rate */
+  }
+  .scene-pane.page-in {
+    animation: pageIn 0.55s cubic-bezier(.34,1.4,.64,1) 1;
+  }
+  @keyframes pageIn {
+    0% { transform: scale(0.88) translateY(18px); opacity: 0.4; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
   }
 
   .content-pane {
@@ -153,38 +161,38 @@
   #reading.listening .say-banner { display: inline-block; }
   .say-banner b { font-size: 1.15em; }
 
-  /* Scene reacts when the child says the word */
-  .scene-pane.react { animation: scenePop 0.7s cubic-bezier(.34,1.56,.64,1); }
+  /* Scene reacts on word win — transform ONLY (Chromecast-safe, no filters) */
+  .scene-pane.react { animation: scenePop 0.55s cubic-bezier(.34,1.56,.64,1) 1; }
   @keyframes scenePop {
     0% { transform: scale(0.94); }
-    55% { transform: scale(1.05); }
+    55% { transform: scale(1.08); }
     100% { transform: scale(1); }
   }
-  .scene-pane .glow-moon { transform-origin: center; transform-box: fill-box; }
-  .scene-pane.react .glow-moon {
-    animation: moonGlow 0.9s ease-in-out 1;
+  .scene-pane .glow-moon,
+  .scene-pane .twinkle,
+  .scene-pane .cat-ear {
+    transform-origin: center;
+    transform-box: fill-box;
   }
-  @keyframes moonGlow {
-    0%, 100% { filter: drop-shadow(0 0 6px rgba(255,224,102,0.4)); }
-    50% { filter: drop-shadow(0 0 22px rgba(255,224,102,0.95)); }
+  .scene-pane.react .glow-moon { animation: moonPop 0.7s ease-out 1; }
+  @keyframes moonPop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.18); }
+    100% { transform: scale(1); }
   }
-  .scene-pane .twinkle { transform-origin: center; transform-box: fill-box; }
-  .scene-pane.react .twinkle {
-    animation: starTwinkle 0.7s ease-in-out 1;
+  .scene-pane.react .twinkle { animation: starPop 0.55s ease-out 1; }
+  .scene-pane.react .twinkle:nth-of-type(odd) { animation-delay: 0.05s; }
+  @keyframes starPop {
+    0% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.8); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.85; }
   }
-  .scene-pane .twinkle:nth-of-type(odd) { animation-delay: 0.08s; }
-  @keyframes starTwinkle {
-    0%, 100% { opacity: 0.7; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.35); }
-  }
-  .scene-pane .cat-ear { transform-origin: bottom center; transform-box: fill-box; }
-  .scene-pane.react .cat-ear {
-    animation: earTwitch 0.45s ease-in-out 2;
-  }
+  .scene-pane .cat-ear { transform-origin: bottom center; }
+  .scene-pane.react .cat-ear { animation: earTwitch 0.4s ease-in-out 2; }
   @keyframes earTwitch {
     0%, 100% { transform: rotate(0deg); }
-    40% { transform: rotate(-14deg); }
-    70% { transform: rotate(10deg); }
+    40% { transform: rotate(-16deg); }
+    70% { transform: rotate(12deg); }
   }
 
   .phonetic {
@@ -219,41 +227,94 @@
   .page-dots span {
     width: 14px; height: 14px; border-radius: 50%;
     background: rgba(255,255,255,0.35);
-    box-shadow: 0 0 8px rgba(255,255,255,0.2);
   }
   .page-dots span.active {
     background: var(--lamp);
-    box-shadow: 0 0 16px rgba(255,224,102,0.8);
     transform: scale(1.2);
   }
 
-  /* ---------- Celebration burst ---------- */
+  /* ---------- Game FX layer (big one-shot celebrations) ----------
+     Chromecast rule: ONE flourish at a time, only transform + opacity,
+     never rewrite the scene SVG while animating. */
   #celebrate {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.25s ease;
-    z-index: 10;
+    z-index: 20;
   }
   #celebrate.burst { opacity: 1; }
-  #celebrate .glow {
-    width: 200px; height: 200px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,224,102,0.65), rgba(255,123,110,0.25) 55%, transparent 70%);
-    display: flex; align-items: center; justify-content: center;
-    transform: scale(0.4);
-    transition: transform 0.5s cubic-bezier(.34,1.56,.64,1);
+  #celebrate .flash {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 45%, rgba(255,224,102,0.45), transparent 55%);
+    opacity: 0;
   }
-  #celebrate.burst .glow { transform: scale(1.15); }
-  #celebrate .glow svg { width: 80px; height: 80px; }
+  #celebrate.burst .flash { animation: flashPop 0.7s ease-out 1; }
+  @keyframes flashPop {
+    0% { opacity: 0; }
+    25% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  #celebrate .glow {
+    width: 22vw; height: 22vw; max-width: 260px; max-height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,224,102,0.85), rgba(255,123,110,0.35) 50%, transparent 70%);
+    display: flex; align-items: center; justify-content: center;
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  #celebrate.burst .glow {
+    animation: glowBoom 0.85s cubic-bezier(.34,1.5,.64,1) 1 forwards;
+  }
+  @keyframes glowBoom {
+    0% { transform: scale(0.3); opacity: 0; }
+    45% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  #celebrate .glow svg { width: 40%; height: 40%; }
+  #celebrate .yes {
+    position: absolute;
+    top: 18%;
+    font-size: 5.5vw;
+    font-weight: 900;
+    color: var(--lamp);
+    text-shadow: 0 4px 0 rgba(0,0,0,0.25);
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  #celebrate.burst .yes {
+    animation: yesSlam 0.75s cubic-bezier(.34,1.6,.64,1) 1 forwards;
+  }
+  @keyframes yesSlam {
+    0% { transform: scale(0.4) rotate(-8deg); opacity: 0; }
+    55% { transform: scale(1.15) rotate(2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
   #celebrate .particle {
     position: absolute;
-    width: 30px; height: 30px;
+    width: 3.2vw; height: 3.2vw; max-width: 42px; max-height: 42px;
     opacity: 0;
-    transform: translate(0, 0) scale(0.6);
-    transition: transform 0.55s ease-out, opacity 0.55s ease-out;
+    will-change: transform, opacity;
   }
-  #celebrate.burst .particle { opacity: 1; transform: var(--to) scale(1.15); }
+  #celebrate .particle svg { width: 100%; height: 100%; display: block; }
+  #celebrate.burst .particle {
+    animation: sparkFly 0.85s ease-out 1 forwards;
+    animation-delay: var(--delay, 0ms);
+  }
+  @keyframes sparkFly {
+    0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(1.15); opacity: 0; }
+  }
+
+  /* Soft idle wobble — ONE element only, transform only */
+  #reading.listening .say-banner {
+    animation: sayIdle 1.6s ease-in-out infinite;
+  }
+  @keyframes sayIdle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
 
   /* ---------- Copycat screen ---------- */
   #copycat {
@@ -266,8 +327,8 @@
       radial-gradient(ellipse 50% 40% at 85% 15%, rgba(255,224,102,0.25), transparent 50%);
   }
   #copycat.visible { display: flex; opacity: 1; }
-  #copycatCatWrap { animation: catbob 2.6s ease-in-out infinite; margin: 2.2vw 0;
-    filter: drop-shadow(0 18px 40px rgba(255,77,122,0.4)); }
+  #copycatCatWrap { animation: catbob 2.8s ease-in-out infinite; margin: 2.2vw 0; }
+  /* drop-shadow filter removed — expensive on Chronecast */
   #copycatCat { width: 42vw; max-width: 620px; }
   #copycatCat svg { width: 100%; height: auto; display: block; }
   #copycatBubble {
@@ -328,7 +389,9 @@
 <body>
 
   <div id="celebrate">
-    <div class="glow"><svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="#FFC857"/></svg></div>
+    <div class="flash"></div>
+    <div class="yes" id="celebrateYes">YES!</div>
+    <div class="glow"><svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="#FFE066"/></svg></div>
   </div>
   <audio id="sfxAudio" preload="auto"></audio>
 
@@ -609,23 +672,28 @@
   var hiLineEl = document.getElementById('hiLine');
   var pageDotsEl = document.getElementById('pageDots');
   var celebrateEl = document.getElementById('celebrate');
+  var celebrateYesEl = document.getElementById('celebrateYes');
   var copycatEl = document.getElementById('copycat');
   var copycatCat = document.getElementById('copycatCat');
   var copycatBubble = document.getElementById('copycatBubble');
   var copycatPromptEl = document.getElementById('copycatPrompt');
   var copycatTimer = null;
+  var celebrateTimer = null;
 
-  // Build the 6 burst particles once, matching the phone app's animation.
+  // Prebuild spark particles once. Chromecast is fine with CSS transform
+  // bursts; rewriting SVG every highlight is what caused the lag.
   (function setupParticles() {
-    var count = 6;
+    var count = 14;
+    var colors = [T.lamp, T.coral, T.mint, '#6EC8FF', T.lamp, T.coral];
     for (var i = 0; i < count; i++) {
       var angle = (i / count) * Math.PI * 2;
-      var dx = Math.cos(angle) * 130;
-      var dy = Math.sin(angle) * 130;
+      var dist = 140 + (i % 3) * 55;
       var el = document.createElement('div');
       el.className = 'particle';
-      el.style.setProperty('--to', 'translate(' + dx + 'px, ' + dy + 'px)');
-      el.innerHTML = '<svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="' + (i % 2 === 0 ? T.lamp : T.coral) + '"/></svg>';
+      el.style.setProperty('--dx', Math.round(Math.cos(angle) * dist) + 'px');
+      el.style.setProperty('--dy', Math.round(Math.sin(angle) * dist) + 'px');
+      el.style.setProperty('--delay', (i * 18) + 'ms');
+      el.innerHTML = '<svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="' + colors[i % colors.length] + '"/></svg>';
       celebrateEl.appendChild(el);
     }
   })();
@@ -668,14 +736,21 @@
     sfxAudio.load();
   }
 
-  function celebrate() {
+  function celebrate(word) {
     playSfx('celebrate', 'celebrate.wav');
-    celebrateEl.classList.add('burst');
+    if (celebrateYesEl) celebrateYesEl.textContent = word ? ('YES! ' + String(word).toUpperCase() + '!') : 'YES!';
+    clearTimeout(celebrateTimer);
+    celebrateEl.classList.remove('burst');
     scenePane.classList.remove('react');
+    // Force reflow so replaying the same flourish restarts cleanly.
+    void celebrateEl.offsetWidth;
     void scenePane.offsetWidth;
+    celebrateEl.classList.add('burst');
     scenePane.classList.add('react');
-    setTimeout(function () { celebrateEl.classList.remove('burst'); }, 1100);
-    setTimeout(function () { scenePane.classList.remove('react'); }, 900);
+    celebrateTimer = setTimeout(function () {
+      celebrateEl.classList.remove('burst');
+      scenePane.classList.remove('react');
+    }, 1000);
   }
 
   // Once whatever's playing finishes, pick up any narration preload that
@@ -745,6 +820,10 @@
     if (sceneKey !== lastSceneKey) {
       scenePane.innerHTML = SCENES[data.scene] || SCENES.moon;
       lastSceneKey = sceneKey;
+      scenePane.classList.remove('page-in');
+      void scenePane.offsetWidth;
+      scenePane.classList.add('page-in');
+      setTimeout(function () { scenePane.classList.remove('page-in'); }, 600);
     }
     scenePane.classList.remove('react');
     bookTitleEl.textContent = data.bookTitle || '';
@@ -977,7 +1056,7 @@
     } else if (data.type === 'listening') {
       setListeningMode(!!data.listening, data.targetWord);
     } else if (data.type === 'celebrate') {
-      celebrate();
+      celebrate(data.word || data.targetWord);
     } else if (data.type === 'speak') {
       // Legacy pre-recorded WAV — kept as offline fallback if the phone
       // couldn't stream natural audio.
