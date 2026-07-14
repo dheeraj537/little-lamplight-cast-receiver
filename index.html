@@ -785,6 +785,11 @@
   }
 
   var lastSceneKey = '';
+  // Natural VO must not start until the new page is painted — otherwise kids
+  // hear Jugnu while the TV is still showing the previous scene / blank.
+  var naturalVoiceAllowed = false;
+  var pendingNaturalUri = null;
+  var pageReadyTimer = null;
 
   function setListeningMode(on, targetWord) {
     if (on) {
@@ -803,8 +808,34 @@
     }
   }
 
+  function signalPageReady(data, sceneChanged) {
+    clearTimeout(pageReadyTimer);
+    // Give Chronecast a frame (or two) to paint the SVG / words before VO.
+    var delay = sceneChanged ? 140 : 50;
+    pageReadyTimer = setTimeout(function () {
+      naturalVoiceAllowed = true;
+      if (pendingNaturalUri) {
+        var uri = pendingNaturalUri;
+        pendingNaturalUri = null;
+        startNaturalAudio(uri);
+      }
+      try {
+        context.sendCustomMessage(NAMESPACE, lastSenderId, {
+          type: 'pageReady',
+          book: data.book,
+          page: data.page,
+        });
+      } catch (e) {}
+    }, delay);
+  }
+
   function renderPage(data) {
     copycatExit();
+    // Hold any in-flight natural audio until this page is on screen.
+    naturalVoiceAllowed = false;
+    pendingNaturalUri = null;
+    clearTimeout(pageReadyTimer);
+
     idleEl.style.opacity = '0';
     setTimeout(function () { idleEl.style.display = 'none'; }, 280);
     readingEl.classList.add('visible');
@@ -816,7 +847,8 @@
     // karaoke + listen toggles used to rewrite innerHTML every word and
     // that makes Chronecast stutter / look like it's "catching up" to the phone.
     var sceneKey = String(data.book || '') + '|' + String(data.page) + '|' + String(data.scene || '');
-    if (sceneKey !== lastSceneKey) {
+    var sceneChanged = sceneKey !== lastSceneKey;
+    if (sceneChanged) {
       scenePane.innerHTML = SCENES[data.scene] || SCENES.moon;
       lastSceneKey = sceneKey;
       scenePane.classList.remove('page-in');
@@ -848,10 +880,15 @@
       }
       pageDotsEl.innerHTML = dots;
     }
+
+    signalPageReady(data, sceneChanged);
   }
 
   function renderIdle() {
     lastSceneKey = '';
+    naturalVoiceAllowed = false;
+    pendingNaturalUri = null;
+    clearTimeout(pageReadyTimer);
     readingEl.classList.remove('visible');
     readingEl.classList.remove('listening');
     copycatEl.classList.remove('visible');
@@ -1020,7 +1057,7 @@
   // Web Speech path for reading + Jugnu while casting.
   var naturalBuffers = {};
 
-  function playNaturalAudio(dataUri) {
+  function startNaturalAudio(dataUri) {
     sfxLoaded = 'natural';
     sfxAudio.pause();
     sfxAudio.playbackRate = 1.0;
@@ -1035,7 +1072,17 @@
     sfxAudio.load();
   }
 
+  function playNaturalAudio(dataUri) {
+    // Queue until page visuals are ready — fixes VO starting on the old scene.
+    if (!naturalVoiceAllowed || !readingEl.classList.contains('visible')) {
+      pendingNaturalUri = dataUri;
+      return;
+    }
+    startNaturalAudio(dataUri);
+  }
+
   function stopNaturalAudio() {
+    pendingNaturalUri = null;
     if (sfxLoaded === 'natural' || (sfxLoaded && String(sfxLoaded).indexOf('natural:') === 0)) {
       try { sfxAudio.pause(); sfxAudio.removeAttribute('src'); sfxAudio.load(); } catch (e) {}
       sfxLoaded = null;
