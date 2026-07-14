@@ -6,45 +6,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root {
-    --night: #332B4E;
-    --night-deep: #2A2342;
-    --night-soft: #4A4170;
-    --lamp: #FFC857;
-    --coral: #F08A7E;
-    --milk: #FFF9F0;
-    --milk-soft: rgba(255,249,240,0.72);
-    --milk-faint: rgba(255,249,240,0.5);
+    /* Storybook night — brighter + higher contrast for 10-foot TV */
+    --night: #251A5C;
+    --night-deep: #150D3A;
+    --night-soft: #4B3AAB;
+    --sky: #3D6BFF;
+    --sky-glow: #6EC8FF;
+    --lamp: #FFE066;
+    --lamp-hot: #FFB020;
+    --coral: #FF7B6E;
+    --coral-hot: #FF4D7A;
+    --mint: #5FE3A1;
+    --milk: #FFFFFF;
+    --milk-soft: rgba(255,255,255,0.9);
+    --milk-faint: rgba(255,255,255,0.75);
+    --ink: #1A1240;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
-    background: var(--night);
+    background:
+      radial-gradient(ellipse 90% 70% at 20% 15%, rgba(110,200,255,0.35), transparent 55%),
+      radial-gradient(ellipse 80% 60% at 85% 20%, rgba(255,224,102,0.22), transparent 50%),
+      radial-gradient(ellipse 70% 50% at 50% 100%, rgba(255,77,122,0.18), transparent 45%),
+      linear-gradient(165deg, #1A0F4A 0%, #2B1B6E 40%, #1E3A8A 100%);
     color: var(--milk);
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
     overflow: hidden;
   }
+  /* Twinkle overlay — makes the TV feel alive */
+  body::before {
+    content: "";
+    position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(2px 2px at 12% 22%, rgba(255,255,255,0.9), transparent),
+      radial-gradient(2px 2px at 28% 58%, rgba(255,224,102,0.85), transparent),
+      radial-gradient(1.5px 1.5px at 48% 18%, rgba(255,255,255,0.75), transparent),
+      radial-gradient(2px 2px at 72% 36%, rgba(110,200,255,0.9), transparent),
+      radial-gradient(1.5px 1.5px at 88% 70%, rgba(255,255,255,0.7), transparent),
+      radial-gradient(2px 2px at 62% 82%, rgba(255,123,110,0.7), transparent);
+    animation: twinkle 4.5s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle { from { opacity: 0.55; } to { opacity: 1; } }
+
   /* 10-foot UI: generous safe-area margin so nothing sits under a TV's overscan crop */
   .safe {
     position: absolute; inset: 5%;
     display: flex;
     flex-direction: column;
+    z-index: 1;
   }
 
   /* ---------- Idle screen ---------- */
   #idle {
-    position: absolute; inset: 0;
+    position: absolute; inset: 0; z-index: 1;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center;
     transition: opacity 0.6s ease;
   }
-  #idle .moon-badge { width: 140px; height: 140px; margin-bottom: 28px; }
-  #idle h1 { font-size: 3.4vw; margin: 0 0 12px; font-weight: 800; }
-  #idle p { font-size: 1.6vw; color: var(--milk-soft); margin: 0; }
-  .dot { fill: var(--milk); opacity: 0.7; }
+  #idle .moon-badge { width: 160px; height: 160px; margin-bottom: 28px;
+    filter: drop-shadow(0 0 28px rgba(255,224,102,0.55)); }
+  #idle h1 { font-size: 3.8vw; margin: 0 0 12px; font-weight: 800;
+    text-shadow: 0 0 40px rgba(255,224,102,0.35); }
+  #idle p { font-size: 1.7vw; color: var(--milk-soft); margin: 0; }
+  .dot { fill: var(--milk); opacity: 0.85; }
 
   /* ---------- Reading screen ---------- */
   #reading {
-    position: absolute; inset: 0;
+    position: absolute; inset: 0; z-index: 1;
     display: none;
     opacity: 0;
     transition: opacity 0.5s ease;
@@ -61,7 +90,11 @@
     flex: 0 0 42%;
     display: flex; align-items: center; justify-content: center;
   }
-  .scene-pane svg { width: 100%; height: auto; max-height: 78vh; }
+  .scene-pane svg {
+    width: 100%; height: auto; max-height: 78vh;
+    filter: drop-shadow(0 12px 40px rgba(0,0,0,0.35)) drop-shadow(0 0 24px rgba(255,224,102,0.18));
+    border-radius: 28px;
+  }
 
   .content-pane {
     flex: 1;
@@ -71,59 +104,75 @@
     min-width: 0;
   }
   .book-title {
-    font-size: 1.5vw;
-    letter-spacing: 0.06em;
+    font-size: 1.6vw;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--lamp);
-    font-weight: 700;
+    font-weight: 800;
     margin-bottom: 1.4vw;
+    text-shadow: 0 0 18px rgba(255,224,102,0.45);
   }
   .sentence {
-    background: var(--milk);
-    color: var(--night-deep);
-    border-radius: 28px;
-    padding: 2.6vw 3vw;
-    font-size: 4.4vw;
+    background: linear-gradient(180deg, #FFFFFF 0%, #FFF6D6 100%);
+    color: var(--ink);
+    border-radius: 32px;
+    padding: 2.8vw 3.2vw;
+    font-size: 4.6vw;
     font-weight: 800;
     line-height: 1.25;
     text-wrap: balance;
+    box-shadow:
+      0 0 0 6px rgba(255,224,102,0.45),
+      0 18px 50px rgba(0,0,0,0.35);
   }
-  .sentence .word { transition: background 0.15s ease; border-radius: 10px; padding: 0 6px; }
-  .sentence .word.hl { background: var(--lamp); }
-  .sentence .word.target { text-decoration: underline; text-decoration-color: var(--coral); text-decoration-thickness: 5px; text-underline-offset: 8px; }
+  .sentence .word { transition: background 0.15s ease, color 0.15s ease; border-radius: 12px; padding: 0 8px; }
+  .sentence .word.hl { background: var(--lamp); color: var(--ink); }
+  .sentence .word.target {
+    text-decoration: underline;
+    text-decoration-color: var(--coral-hot);
+    text-decoration-thickness: 6px;
+    text-underline-offset: 10px;
+  }
 
   .phonetic {
     margin-top: 1.6vw;
-    font-size: 1.5vw;
+    font-size: 1.6vw;
     color: var(--milk-soft);
+    font-weight: 600;
   }
 
   .try-together {
     margin-top: 2vw;
-    border: 3px dashed var(--coral);
-    background: rgba(240,138,126,0.14);
-    border-radius: 20px;
-    padding: 1.4vw 1.8vw;
+    border: 4px dashed var(--coral);
+    background: linear-gradient(135deg, rgba(255,123,110,0.35), rgba(255,224,102,0.22));
+    border-radius: 22px;
+    padding: 1.5vw 2vw;
+    box-shadow: 0 8px 28px rgba(255,77,122,0.2);
   }
   .try-together .lbl {
-    font-size: 1.2vw;
+    font-size: 1.25vw;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--coral);
+    color: #FFE8E4;
     font-weight: 800;
     display: block;
     margin-bottom: 0.4vw;
   }
-  .try-together .txt { font-size: 1.9vw; }
+  .try-together .txt { font-size: 2vw; font-weight: 700; }
 
-  .hi-line { margin-top: 1.4vw; font-size: 1.35vw; color: var(--milk-faint); }
+  .hi-line { margin-top: 1.4vw; font-size: 1.45vw; color: var(--milk-faint); font-weight: 600; }
 
-  .page-dots { position: absolute; bottom: 5%; left: 5%; display: flex; gap: 10px; }
+  .page-dots { position: absolute; bottom: 5%; left: 5%; display: flex; gap: 12px; }
   .page-dots span {
-    width: 12px; height: 12px; border-radius: 50%;
-    background: rgba(255,249,240,0.25);
+    width: 14px; height: 14px; border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+    box-shadow: 0 0 8px rgba(255,255,255,0.2);
   }
-  .page-dots span.active { background: var(--lamp); }
+  .page-dots span.active {
+    background: var(--lamp);
+    box-shadow: 0 0 16px rgba(255,224,102,0.8);
+    transform: scale(1.2);
+  }
 
   /* ---------- Celebration burst ---------- */
   #celebrate {
@@ -136,48 +185,57 @@
   }
   #celebrate.burst { opacity: 1; }
   #celebrate .glow {
-    width: 180px; height: 180px; border-radius: 50%;
-    background: rgba(255,200,87,0.28);
+    width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,224,102,0.65), rgba(255,123,110,0.25) 55%, transparent 70%);
     display: flex; align-items: center; justify-content: center;
     transform: scale(0.4);
     transition: transform 0.5s cubic-bezier(.34,1.56,.64,1);
   }
-  #celebrate.burst .glow { transform: scale(1); }
-  #celebrate .glow svg { width: 70px; height: 70px; }
+  #celebrate.burst .glow { transform: scale(1.15); }
+  #celebrate .glow svg { width: 80px; height: 80px; }
   #celebrate .particle {
     position: absolute;
-    width: 26px; height: 26px;
+    width: 30px; height: 30px;
     opacity: 0;
     transform: translate(0, 0) scale(0.6);
     transition: transform 0.55s ease-out, opacity 0.55s ease-out;
   }
-  #celebrate.burst .particle { opacity: 1; transform: var(--to) scale(1); }
+  #celebrate.burst .particle { opacity: 1; transform: var(--to) scale(1.15); }
 
   /* ---------- Copycat screen ---------- */
   #copycat {
-    position: absolute; inset: 0;
+    position: absolute; inset: 0; z-index: 1;
     display: none; flex-direction: column; align-items: center; justify-content: center;
     opacity: 0; transition: opacity 0.4s ease;
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 40%, rgba(255,123,110,0.28), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 20% 80%, rgba(95,227,161,0.2), transparent 50%),
+      radial-gradient(ellipse 50% 40% at 85% 15%, rgba(255,224,102,0.25), transparent 50%);
   }
   #copycat.visible { display: flex; opacity: 1; }
   #copycatBubble {
-    max-width: 70%;
-    background: var(--milk); color: var(--night-deep);
-    font-size: 2.6vw; font-weight: 800; text-align: center;
-    padding: 1.4vw 2.6vw; border-radius: 44px;
+    max-width: 72%;
+    background: linear-gradient(180deg, #FFFFFF, #FFF4C8);
+    color: var(--ink);
+    font-size: 2.8vw; font-weight: 800; text-align: center;
+    padding: 1.5vw 2.8vw; border-radius: 48px;
+    box-shadow: 0 0 0 5px rgba(255,224,102,0.55), 0 16px 40px rgba(0,0,0,0.3);
     opacity: 0; transform: translateY(12px);
     transition: opacity 0.2s ease, transform 0.2s ease;
   }
   #copycatBubble.show { opacity: 1; transform: translateY(0); }
-  #copycatCatWrap { animation: catbob 2.6s ease-in-out infinite; margin: 2.4vw 0; }
-  #copycatCat { width: 32vw; max-width: 440px; }
+  #copycatCatWrap { animation: catbob 2.6s ease-in-out infinite; margin: 2.4vw 0;
+    filter: drop-shadow(0 16px 36px rgba(255,77,122,0.35)); }
+  #copycatCat { width: 36vw; max-width: 520px; }
   #copycatCat svg { width: 100%; height: auto; display: block; }
   #copycatPrompt {
-    border: 4px dashed var(--coral);
-    background: rgba(240,138,126,0.14);
-    border-radius: 22px; padding: 1.2vw 2.6vw; font-size: 2vw;
+    border: 5px dashed var(--lamp);
+    background: linear-gradient(135deg, rgba(255,123,110,0.4), rgba(61,107,255,0.35));
+    border-radius: 26px; padding: 1.3vw 2.8vw; font-size: 2.15vw; font-weight: 700;
+    box-shadow: 0 10px 32px rgba(0,0,0,0.25);
   }
-  #copycatPrompt b { color: var(--lamp); }
+  #copycatPrompt b { color: var(--lamp); font-size: 1.08em;
+    text-shadow: 0 0 12px rgba(255,224,102,0.6); }
 
   @keyframes catbob { 0%, 100% { transform: translateY(7px); } 50% { transform: translateY(-9px); } }
   .cat-mouth-open { opacity: 0; transform-box: fill-box; transform-origin: center; }
@@ -241,37 +299,57 @@
   var NAMESPACE = 'urn:x-cast:com.littlelamplight.app';
 
   // ---- Scenes: same shapes/colors as the app's Scene.js, translated to plain SVG ----
-  var T = { night: '#332B4E', lamp: '#FFC857', coral: '#F08A7E', milk: '#FFF9F0', ink: '#2E2A3B', skin: '#F5C9A4' };
+  var T = {
+    night: '#251A5C',
+    sky: '#3D6BFF',
+    lamp: '#FFE066',
+    coral: '#FF7B6E',
+    mint: '#5FE3A1',
+    milk: '#FFFFFF',
+    ink: '#1A1240',
+    skin: '#FFD2A8',
+  };
 
   function svg(inner) {
     return '<svg viewBox="0 0 300 190" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
   }
 
+  function sceneBg() {
+    return '<defs><linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#3D6BFF"/>' +
+      '<stop offset="55%" stop-color="#251A5C"/>' +
+      '<stop offset="100%" stop-color="#150D3A"/>' +
+      '</linearGradient></defs>' +
+      '<rect width="300" height="190" fill="url(#skyGrad)" rx="24"/>';
+  }
+
   function starDots() {
-    return '<circle cx="55" cy="50" r="2" fill="' + T.milk + '" opacity="0.7"/>' +
-           '<circle cx="248" cy="65" r="2.4" fill="' + T.milk + '" opacity="0.6"/>';
+    return '<circle cx="55" cy="50" r="2.6" fill="' + T.milk + '"/>' +
+           '<circle cx="248" cy="65" r="3" fill="' + T.lamp + '"/>' +
+           '<circle cx="40" cy="120" r="2" fill="' + T.milk + '"/>' +
+           '<circle cx="270" cy="40" r="2.2" fill="#6EC8FF"/>';
   }
 
   var SCENES = {
     moon: svg(
-      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' +
-      '<circle cx="150" cy="85" r="52" fill="' + T.lamp + '" opacity="0.16"/>' +
-      '<circle cx="150" cy="85" r="40" fill="' + T.lamp + '"/>' +
+      sceneBg() +
+      '<circle cx="150" cy="85" r="58" fill="' + T.lamp + '" opacity="0.28"/>' +
+      '<circle cx="150" cy="85" r="42" fill="' + T.lamp + '"/>' +
       starDots() +
-      '<circle cx="90" cy="40" r="2" fill="' + T.milk + '" opacity="0.8"/>' +
-      '<circle cx="220" cy="140" r="2" fill="' + T.milk + '" opacity="0.7"/>'
+      '<circle cx="90" cy="40" r="2.5" fill="' + T.milk + '"/>' +
+      '<circle cx="220" cy="140" r="2.5" fill="' + T.milk + '"/>'
     ),
     stars: svg(
-      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' +
-      '<circle cx="90" cy="60" r="6" fill="' + T.lamp + '"/>' +
-      '<circle cx="150" cy="40" r="4" fill="' + T.lamp + '"/>' +
-      '<circle cx="205" cy="75" r="5" fill="' + T.lamp + '"/>' +
-      '<circle cx="230" cy="115" r="3.5" fill="' + T.lamp + '"/>' +
-      '<circle cx="75" cy="120" r="3" fill="' + T.lamp + '"/>' +
+      sceneBg() +
+      '<circle cx="90" cy="60" r="8" fill="' + T.lamp + '"/>' +
+      '<circle cx="150" cy="40" r="5.5" fill="' + T.lamp + '"/>' +
+      '<circle cx="205" cy="75" r="6.5" fill="#6EC8FF"/>' +
+      '<circle cx="230" cy="115" r="4.5" fill="' + T.lamp + '"/>' +
+      '<circle cx="75" cy="120" r="4" fill="' + T.mint + '"/>' +
       starDots()
     ),
     cat: svg(
-      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' +
+      sceneBg() +
       '<ellipse cx="150" cy="140" rx="60" ry="34" fill="' + T.coral + '"/>' +
       '<circle cx="112" cy="98" r="26" fill="' + T.coral + '"/>' +
       '<path d="M92 82 L100 62 L112 84 Z" fill="' + T.coral + '"/>' +
@@ -280,8 +358,8 @@
       starDots()
     ),
     child: svg(
-      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' +
-      '<circle cx="150" cy="60" r="38" fill="' + T.lamp + '" opacity="0.16"/>' +
+      sceneBg() +
+      '<circle cx="150" cy="60" r="42" fill="' + T.lamp + '" opacity="0.25"/>' +
       '<circle cx="150" cy="98" r="34" fill="' + T.skin + '"/>' +
       '<path d="M120 84 Q150 60 180 84 Q150 74 120 84" fill="' + T.ink + '"/>' +
       '<circle cx="138" cy="96" r="4" fill="' + T.ink + '"/><circle cx="162" cy="96" r="4" fill="' + T.ink + '"/>' +
@@ -304,11 +382,11 @@
       (part === 'nose' ? ring(150, 104, 16) : '') +
       '<path d="M136 114 Q150 122 164 114" stroke="' + T.ink + '" stroke-width="3.5" fill="none" stroke-linecap="round"/>';
     SCENES['baby' + part.charAt(0).toUpperCase() + part.slice(1)] = svg(
-      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots() + body + feet + face
+      sceneBg() + body + feet + face
     );
   });
 
-  var NIGHT_SOFT = '#4A4170', NIGHT_DEEP = '#2A2342';
+  var NIGHT_SOFT = '#5B4BA8', NIGHT_DEEP = '#1E3A8A';
   ['wheels', 'beep', 'wave', 'home'].forEach(function (variant) {
     var busX = variant === 'home' ? -30 : 0;
     var ring = function (cx, cy, r) { return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" stroke="' + T.lamp + '" stroke-width="3.5" fill="none"/>'; };
@@ -327,7 +405,7 @@
       ? '<rect x="228" y="106" width="46" height="42" rx="6" fill="' + NIGHT_SOFT + '"/><path d="M222 110 L251 84 L280 110 Z" fill="' + T.coral + '"/><rect x="244" y="122" width="14" height="14" rx="3" fill="' + T.lamp + '"/>'
       : '';
     SCENES['bus' + variant.charAt(0).toUpperCase() + variant.slice(1)] = svg(
-      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots() +
+      sceneBg() +
       '<rect x="20" y="148" width="260" height="5" rx="2.5" fill="' + NIGHT_SOFT + '"/>' + bus + house
     );
   });
@@ -362,7 +440,7 @@
       extras += '<g transform="rotate(12 165 72)"><circle cx="160" cy="68" r="5.5" fill="' + T.lamp + '"/><circle cx="170" cy="68" r="5.5" fill="' + T.lamp + '"/><path d="M154.5 70 L175.5 70 L165 84 Z" fill="' + T.lamp + '"/></g>';
     }
     SCENES['cat' + variant.charAt(0).toUpperCase() + variant.slice(1)] = svg(
-      '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots() + cat + extras
+      sceneBg() + cat + extras
     );
   });
 
@@ -415,7 +493,7 @@
         (asleep ? '' : ring(206, 110, 50));
     };
     var base = function (asleep) {
-      return '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots() + barn(asleep);
+      return sceneBg() + barn(asleep);
     };
     SCENES.farmCow = svg(base(false) + cow(false));
     SCENES.farmDuck = svg(base(false) + duck(false));
@@ -433,7 +511,7 @@
       '<path d="M118 78 Q150 62 182 78 Q150 70 118 78" fill="' + T.ink + '"/>' +
       '<circle cx="136" cy="92" r="4" fill="' + T.ink + '"/><circle cx="164" cy="92" r="4" fill="' + T.ink + '"/>' +
       '<ellipse cx="150" cy="104" rx="5" ry="4" fill="#E8AD84"/>';
-    var bg = '<rect width="300" height="190" fill="' + T.night + '" rx="20"/>' + starDots();
+    var bg = sceneBg();
     SCENES.babyBoo = svg(bg + face +
       '<ellipse cx="103" cy="92" rx="14" ry="17" fill="' + T.skin + '" transform="rotate(-18 103 92)"/>' +
       '<ellipse cx="197" cy="92" rx="14" ry="17" fill="' + T.skin + '" transform="rotate(18 197 92)"/>' +
