@@ -96,11 +96,11 @@
     /* No CSS filter here — filters kill Chromecast frame rate */
   }
   .scene-pane.page-in {
-    animation: pageIn 0.55s cubic-bezier(.34,1.4,.64,1) 1;
+    animation: pageIn 0.28s ease-out 1;
   }
   @keyframes pageIn {
-    0% { transform: scale(0.88) translateY(18px); opacity: 0.4; }
-    100% { transform: scale(1) translateY(0); opacity: 1; }
+    0% { transform: translateY(10px); opacity: 0.55; }
+    100% { transform: translateY(0); opacity: 1; }
   }
 
   .content-pane {
@@ -753,14 +753,11 @@
     }, 1000);
   }
 
-  // Once whatever's playing finishes, pick up any narration preload that
-  // got deferred while the element was busy (see preloadNarration below).
+  // Once whatever's playing finishes, clear deferred narrate preload intent.
+  // (WAV preload was removed from renderPage — natural TTS owns the element.)
   sfxAudio.addEventListener('ended', function () {
     if (typeof copycatCat !== 'undefined' && copycatCat) copycatCat.classList.remove('talking');
-    if (narratePreloadKey && sfxLoaded !== narratePreloadKey) {
-      var parts = narratePreloadKey.replace('narrate:', '').split('-');
-      preloadNarration(parts[0], Number(parts[1]));
-    }
+    narratePreloadKey = null;
   });
 
   function narrateSrc(book, page) { return 'narrate/' + book + '-' + page + '.wav'; }
@@ -809,9 +806,11 @@
   function renderPage(data) {
     copycatExit();
     idleEl.style.opacity = '0';
-    setTimeout(function () { idleEl.style.display = 'none'; }, 500);
+    setTimeout(function () { idleEl.style.display = 'none'; }, 280);
     readingEl.classList.add('visible');
-    preloadNarration(data.book, data.page);
+    // Do NOT preload old narrate/*.wav onto the shared <audio> element —
+    // natural TTS from the phone uses that same element, and WAV preload
+    // made every page feel slow / stole the audio pipeline.
 
     // Only rebuild the scene SVG when the page/scene actually changes —
     // karaoke + listen toggles used to rewrite innerHTML every word and
@@ -823,7 +822,7 @@
       scenePane.classList.remove('page-in');
       void scenePane.offsetWidth;
       scenePane.classList.add('page-in');
-      setTimeout(function () { scenePane.classList.remove('page-in'); }, 600);
+      setTimeout(function () { scenePane.classList.remove('page-in'); }, 300);
     }
     scenePane.classList.remove('react');
     bookTitleEl.textContent = data.bookTitle || '';
