@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="ll-cache-bust" content="fast-screens-v3">
+<meta name="ll-cache-bust" content="copycat-audio-v4">
 <meta charset="utf-8" />
 <title>Little Lamplight — Cast Receiver</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -1135,8 +1135,11 @@
   }
 
   function playNaturalAudio(dataUri) {
-    // Queue until page visuals are ready — fixes VO starting on the old scene.
-    if (!naturalVoiceAllowed || !readingEl.classList.contains('visible')) {
+    // Allow VO on reading OR Copycat — the old check required #reading.visible,
+    // which queued every Copycat trick/echo-natural into silence.
+    var onReading = readingEl.classList.contains('visible');
+    var onCopycat = copycatEl.classList.contains('visible');
+    if (!naturalVoiceAllowed || (!onReading && !onCopycat)) {
       pendingNaturalUri = dataUri;
       return;
     }
