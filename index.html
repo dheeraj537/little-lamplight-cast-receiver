@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="ll-cache-bust" content="sun-mood-v7">
+<meta name="ll-cache-bust" content="grand-party-v8">
 <meta charset="utf-8" />
 <title>Little Lamplight — Cast Receiver</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -309,12 +309,37 @@
   #celebrate .glow svg { width: 40%; height: 40%; }
   #celebrate .yes {
     position: absolute;
-    top: 16%;
+    top: 14%;
     font-size: clamp(28px, 5.5vw, 72px);
     font-weight: 900;
     color: var(--lamp);
     text-shadow: 0 4px 0 rgba(0,0,0,0.25);
     transform: scale(0.4);
+    opacity: 0;
+  }
+  #celebrate .party-sub {
+    position: absolute;
+    top: 26%;
+    font-size: clamp(16px, 2.4vw, 32px);
+    font-weight: 800;
+    color: var(--milk);
+    text-shadow: 0 2px 0 rgba(0,0,0,0.2);
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  body.mood-sun #celebrate.burst .party-sub {
+    animation: partySub 0.9s cubic-bezier(.34,1.5,.64,1) 1 forwards;
+    animation-delay: 0.12s;
+  }
+  @keyframes partySub {
+    0% { transform: scale(0.7); opacity: 0; }
+    55% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  #celebrate .confetti {
+    position: absolute;
+    width: 12px; height: 18px;
+    border-radius: 3px;
     opacity: 0;
   }
   #celebrate.burst .yes {
@@ -478,10 +503,12 @@
   <div id="celebrate">
     <div class="flash"></div>
     <div class="yes" id="celebrateYes">YES!</div>
+    <div class="party-sub" id="celebrateSub">Party time!</div>
     <div class="glow"><svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="#FFE066"/></svg></div>
   </div>
   <audio id="sfxAudio" preload="auto"></audio>
   <audio id="chimeAudio" preload="auto"></audio>
+  <audio id="partyAudio" preload="auto"></audio>
 
   <div id="idle" class="is-on">
     <svg class="moon-badge" viewBox="0 0 140 140">
@@ -761,36 +788,39 @@
   var pageDotsEl = document.getElementById('pageDots');
   var celebrateEl = document.getElementById('celebrate');
   var celebrateYesEl = document.getElementById('celebrateYes');
+  var celebrateSubEl = document.getElementById('celebrateSub');
   var copycatEl = document.getElementById('copycat');
   var copycatCat = document.getElementById('copycatCat');
   var copycatBubble = document.getElementById('copycatBubble');
   var copycatPromptEl = document.getElementById('copycatPrompt');
   var copycatTimer = null;
   var celebrateTimer = null;
+  var partySfxTimer = null;
 
   // Prebuild spark particles once. Chromecast is fine with CSS transform
   // bursts; rewriting SVG every highlight is what caused the lag.
   // Motions are baked as keyframe names (not CSS vars — CAF ignores those).
   var particleEls = [];
   var balloonEls = [];
+  var confettiEls = [];
   (function setupParticles() {
-    var count = 14;
-    var colors = [T.lamp, T.coral, T.mint, '#6EC8FF', T.lamp, T.coral];
+    var count = 18;
+    var colors = [T.lamp, T.coral, T.mint, '#6EC8FF', T.lamp, T.coral, '#FF9A1F'];
     for (var i = 0; i < count; i++) {
       var angle = (i / count) * Math.PI * 2;
-      var dist = 140 + (i % 3) * 55;
+      var dist = 130 + (i % 4) * 55;
       var dx = Math.round(Math.cos(angle) * dist);
       var dy = Math.round(Math.sin(angle) * dist);
       var el = document.createElement('div');
       el.className = 'particle';
-      el.style.animationDelay = (i * 18) + 'ms';
+      el.style.animationDelay = (i * 14) + 'ms';
       var animName = 'sparkFly' + i;
       var sheet = document.createElement('style');
       sheet.textContent =
         '@keyframes ' + animName + '{' +
         '0%{transform:translate(0,0) scale(0.4);opacity:0}' +
         '20%{opacity:1}' +
-        '100%{transform:translate(' + dx + 'px,' + dy + 'px) scale(1.15);opacity:0}' +
+        '100%{transform:translate(' + dx + 'px,' + dy + 'px) scale(1.2);opacity:0}' +
         '}';
       document.head.appendChild(sheet);
       el.dataset.anim = animName;
@@ -798,13 +828,13 @@
       celebrateEl.appendChild(el);
       particleEls.push(el);
     }
-    // Party balloons (Sun mood only — CSS shows them when body.mood-sun)
-    var bcols = ['#FF5A3C', '#FFE14A', '#2FD06A', '#FF5A3C', '#FFE14A', '#2FD06A'];
-    for (var b = 0; b < 6; b++) {
-      var ba = (b / 6) * Math.PI * 2;
-      var bdist = 160 + (b % 2) * 50;
+    // Party balloons
+    var bcols = ['#FF5A3C', '#FFE14A', '#2FD06A', '#FF5A3C', '#FFE14A', '#2FD06A', '#6EC8FF', '#FF9A1F'];
+    for (var b = 0; b < 8; b++) {
+      var ba = (b / 8) * Math.PI * 2;
+      var bdist = 150 + (b % 3) * 45;
       var bx = Math.round(Math.cos(ba) * bdist);
-      var by = Math.round(-140 - Math.abs(Math.sin(ba)) * 80);
+      var by = Math.round(-150 - Math.abs(Math.sin(ba)) * 90);
       var bel = document.createElement('div');
       bel.className = 'balloon' + (b % 3 === 2 ? ' mint' : '');
       bel.style.background = bcols[b];
@@ -814,21 +844,46 @@
         '@keyframes ' + bAnim + '{' +
         '0%{transform:translate(0,40px) scale(0.5);opacity:0}' +
         '25%{opacity:1}' +
-        '100%{transform:translate(' + bx + 'px,' + by + 'px) scale(1.1);opacity:0}' +
+        '100%{transform:translate(' + bx + 'px,' + by + 'px) scale(1.15);opacity:0}' +
         '}';
       document.head.appendChild(bsheet);
       bel.dataset.anim = bAnim;
       celebrateEl.appendChild(bel);
       balloonEls.push(bel);
     }
+    // Confetti strips (Sun)
+    var ccols = ['#FFE14A', '#FF5A3C', '#2FD06A', '#6EC8FF', '#FF9A1F', '#FFFFFF'];
+    for (var c = 0; c < 16; c++) {
+      var ca = (c / 16) * Math.PI * 2 + 0.2;
+      var cdist = 100 + (c % 5) * 40;
+      var cx = Math.round(Math.cos(ca) * cdist);
+      var cy = Math.round(Math.sin(ca) * cdist - 40);
+      var cel = document.createElement('div');
+      cel.className = 'confetti';
+      cel.style.background = ccols[c % ccols.length];
+      cel.style.width = (8 + (c % 3) * 4) + 'px';
+      cel.style.height = (12 + (c % 2) * 8) + 'px';
+      var cAnim = 'confettiFly' + c;
+      var csheet = document.createElement('style');
+      csheet.textContent =
+        '@keyframes ' + cAnim + '{' +
+        '0%{transform:translate(0,0) rotate(0deg) scale(0.5);opacity:0}' +
+        '15%{opacity:1}' +
+        '100%{transform:translate(' + cx + 'px,' + cy + 'px) rotate(' + (120 + c * 40) + 'deg) scale(1);opacity:0}' +
+        '}';
+      document.head.appendChild(csheet);
+      cel.dataset.anim = cAnim;
+      celebrateEl.appendChild(cel);
+      confettiEls.push(cel);
+    }
   })();
 
-  // A single shared <audio> element for narration / natural TTS / echo.
-  // Celebrate chime uses #chimeAudio so Jugnu's cheer never cuts it off.
+  // Shared SFX for narrate/natural/echo — celebrate party pack uses chime + partyAudio.
   var sfxAudio = document.getElementById('sfxAudio');
   var chimeAudio = document.getElementById('chimeAudio');
-  var sfxLoaded = null; // key of whatever's currently loaded/loading in sfxAudio
-  var narratePreloadKey = null; // book+page we'd like preloaded once sfxAudio is free
+  var partyAudio = document.getElementById('partyAudio');
+  var sfxLoaded = null;
+  var narratePreloadKey = null;
 
   function setPreservePitch(on) {
     try {
@@ -869,12 +924,27 @@
         var p = chimeAudio.play();
         if (p && typeof p.catch === 'function') p.catch(function (err) { console.error('[chime] play', err); });
       };
-      // Bust cache if CAF sticky-cached a bad load.
-      chimeAudio.src = src + (src.indexOf('?') >= 0 ? '&' : '?') + 'v=6';
+      chimeAudio.src = src + (src.indexOf('?') >= 0 ? '&' : '?') + 'v=8';
       chimeAudio.load();
     } catch (e) {
       playSfx('celebrate', src);
     }
+  }
+
+  function playPartyTrack(src) {
+    if (!partyAudio) { playChime(src); return; }
+    try {
+      partyAudio.pause();
+      partyAudio.playbackRate = 1.0;
+      partyAudio.onerror = function () { console.error('[party] failed', partyAudio.error); };
+      partyAudio.oncanplay = function () {
+        partyAudio.oncanplay = null;
+        var p = partyAudio.play();
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      };
+      partyAudio.src = src + (src.indexOf('?') >= 0 ? '&' : '?') + 'v=8';
+      partyAudio.load();
+    } catch (e) {}
   }
 
   function setMood(mood) {
@@ -884,15 +954,22 @@
 
   function celebrate(word) {
     var sunny = document.body.classList.contains('mood-sun');
-    playChime('celebrate.wav');
+    clearTimeout(partySfxTimer);
     if (sunny) {
-      // Double-hit party chime
-      setTimeout(function () { playChime('celebrate.wav'); }, 280);
+      playPartyTrack('drum.wav');
+      partySfxTimer = setTimeout(function () { playChime('party.wav'); }, 140);
+      setTimeout(function () { playPartyTrack('yay.wav'); }, 280);
+      setTimeout(function () { playChime('celebrate.wav'); }, 520);
+    } else {
+      playChime('celebrate.wav');
     }
     if (celebrateYesEl) {
       celebrateYesEl.textContent = word
         ? ((sunny ? 'YAY! ' : 'YES! ') + String(word).toUpperCase() + '!')
         : (sunny ? 'YAY!' : 'YES!');
+    }
+    if (celebrateSubEl) {
+      celebrateSubEl.textContent = sunny ? 'Confetti · balloons · you did it!' : '';
     }
     clearTimeout(celebrateTimer);
     celebrateEl.classList.remove('burst');
@@ -904,18 +981,26 @@
       balloonEls[bi].style.animation = 'none';
       balloonEls[bi].style.opacity = '0';
     }
+    for (var ci = 0; ci < confettiEls.length; ci++) {
+      confettiEls[ci].style.animation = 'none';
+      confettiEls[ci].style.opacity = '0';
+    }
     scenePane.classList.remove('react');
     void celebrateEl.offsetWidth;
     void scenePane.offsetWidth;
     for (var j = 0; j < particleEls.length; j++) {
-      particleEls[j].style.animation = particleEls[j].dataset.anim + ' 0.85s ease-out forwards';
-      particleEls[j].style.animationDelay = (j * 18) + 'ms';
+      particleEls[j].style.animation = particleEls[j].dataset.anim + ' 0.9s ease-out forwards';
+      particleEls[j].style.animationDelay = (j * 14) + 'ms';
       particleEls[j].classList.add('fly');
     }
     if (sunny) {
       for (var bj = 0; bj < balloonEls.length; bj++) {
-        balloonEls[bj].style.animation = balloonEls[bj].dataset.anim + ' 1.1s ease-out forwards';
-        balloonEls[bj].style.animationDelay = (bj * 40) + 'ms';
+        balloonEls[bj].style.animation = balloonEls[bj].dataset.anim + ' 1.2s ease-out forwards';
+        balloonEls[bj].style.animationDelay = (bj * 35) + 'ms';
+      }
+      for (var cj = 0; cj < confettiEls.length; cj++) {
+        confettiEls[cj].style.animation = confettiEls[cj].dataset.anim + ' 1s ease-out forwards';
+        confettiEls[cj].style.animationDelay = (cj * 22) + 'ms';
       }
     }
     celebrateEl.classList.add('burst');
@@ -931,7 +1016,11 @@
         balloonEls[bk].style.animation = 'none';
         balloonEls[bk].style.opacity = '0';
       }
-    }, sunny ? 1300 : 1100);
+      for (var ck = 0; ck < confettiEls.length; ck++) {
+        confettiEls[ck].style.animation = 'none';
+        confettiEls[ck].style.opacity = '0';
+      }
+    }, sunny ? 1500 : 1100);
   }
 
   // Once whatever's playing finishes, clear deferred narrate preload intent.
