@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="ll-cache-bust" content="copycat-safe-v2">
+<meta name="ll-cache-bust" content="fast-screens-v3">
 <meta charset="utf-8" />
 <title>Little Lamplight — Cast Receiver</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -62,10 +62,9 @@
     position: absolute; inset: 0; z-index: 1;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center;
-    transition: opacity 0.6s ease;
+    /* No fade — Chronecast screen switches must be instant */
   }
-  #idle .moon-badge { width: 160px; height: 160px; margin-bottom: 28px;
-    filter: drop-shadow(0 0 28px rgba(255,224,102,0.55)); }
+  #idle .moon-badge { width: 160px; height: 160px; margin-bottom: 28px; }
   #idle h1 { font-size: 3.8vw; margin: 0 0 12px; font-weight: 800;
     text-shadow: 0 0 40px rgba(255,224,102,0.35); }
   #idle p { font-size: 1.7vw; color: var(--milk-soft); margin: 0; }
@@ -75,10 +74,8 @@
   #reading {
     position: absolute; inset: 0; z-index: 1;
     display: none;
-    opacity: 0;
-    transition: opacity 0.5s ease;
   }
-  #reading.visible { display: flex; opacity: 1; }
+  #reading.visible { display: flex; }
   .stage {
     display: flex;
     align-items: center;
@@ -89,19 +86,16 @@
   .scene-pane {
     flex: 0 0 42%;
     display: flex; align-items: center; justify-content: center;
-    will-change: transform;
   }
+  .scene-pane .scene-slot {
+    width: 100%;
+    display: none;
+  }
+  .scene-pane .scene-slot.active { display: block; }
   .scene-pane svg {
     width: 100%; height: auto; max-height: 78vh;
     border-radius: 28px;
     /* No CSS filter here — filters kill Chromecast frame rate */
-  }
-  .scene-pane.page-in {
-    animation: pageIn 0.28s ease-out 1;
-  }
-  @keyframes pageIn {
-    0% { transform: translateY(10px); opacity: 0.55; }
-    100% { transform: translateY(0); opacity: 1; }
   }
 
   .content-pane {
@@ -326,13 +320,13 @@
     box-sizing: border-box;
     padding: 11vh 9vw 12vh;
     overflow: hidden;
-    opacity: 0; transition: opacity 0.4s ease;
+    /* Instant show — fade made Copycat feel like a slow screen load */
     background:
       radial-gradient(ellipse 70% 55% at 50% 40%, rgba(255,123,110,0.28), transparent 60%),
       radial-gradient(ellipse 50% 40% at 20% 80%, rgba(95,227,161,0.2), transparent 50%),
       radial-gradient(ellipse 50% 40% at 85% 15%, rgba(255,224,102,0.25), transparent 50%);
   }
-  #copycat.visible { display: flex; opacity: 1; }
+  #copycat.visible { display: flex; }
   #copycatCatWrap {
     flex: 1 1 auto;
     min-height: 0;
@@ -817,11 +811,52 @@
   }
 
   var lastSceneKey = '';
+  var lastSceneName = '';
+  var sceneSlots = {};
   // Natural VO must not start until the new page is painted — otherwise kids
   // hear Jugnu while the TV is still showing the previous scene / blank.
   var naturalVoiceAllowed = false;
   var pendingNaturalUri = null;
   var pageReadyTimer = null;
+
+  function hideIdleNow() {
+    idleEl.style.display = 'none';
+    idleEl.style.opacity = '1';
+  }
+
+  // Cache each scene SVG in the DOM and toggle .active — avoids re-parsing
+  // markup on every page turn (the main Chronecast "slow load" cost).
+  function showScene(sceneName) {
+    var name = sceneName || 'moon';
+    var keys = Object.keys(sceneSlots);
+    for (var i = 0; i < keys.length; i++) sceneSlots[keys[i]].classList.remove('active');
+    var slot = sceneSlots[name];
+    var created = false;
+    if (!slot) {
+      slot = document.createElement('div');
+      slot.className = 'scene-slot';
+      slot.innerHTML = SCENES[name] || SCENES.moon;
+      scenePane.appendChild(slot);
+      sceneSlots[name] = slot;
+      created = true;
+    }
+    slot.classList.add('active');
+    var changed = created || name !== lastSceneName;
+    lastSceneName = name;
+    return changed;
+  }
+
+  // Warm common scenes in the background after boot so first page turns feel instant.
+  // (Removed: prebuilding every scene on Chronecast caused hitching at cast start.)
+
+  // Prebuild Copycat SVG once so entering the game is instant.
+  setTimeout(function () {
+    try {
+      if (copycatCat && !copycatCat.firstChild && typeof copycatSvg === 'function') {
+        copycatCat.innerHTML = copycatSvg();
+      }
+    } catch (e) {}
+  }, 200);
 
   function setListeningMode(on, targetWord) {
     if (on) {
@@ -842,8 +877,8 @@
 
   function signalPageReady(data, sceneChanged) {
     clearTimeout(pageReadyTimer);
-    // Give Chronecast a frame (or two) to paint the SVG / words before VO.
-    var delay = sceneChanged ? 140 : 50;
+    // One frame is enough once fades are gone — don't add artificial lag.
+    var delay = sceneChanged ? 32 : 0;
     pageReadyTimer = setTimeout(function () {
       naturalVoiceAllowed = true;
       if (pendingNaturalUri) {
@@ -868,25 +903,14 @@
     pendingNaturalUri = null;
     clearTimeout(pageReadyTimer);
 
-    idleEl.style.opacity = '0';
-    setTimeout(function () { idleEl.style.display = 'none'; }, 280);
+    hideIdleNow();
     readingEl.classList.add('visible');
-    // Do NOT preload old narrate/*.wav onto the shared <audio> element —
-    // natural TTS from the phone uses that same element, and WAV preload
-    // made every page feel slow / stole the audio pipeline.
 
-    // Only rebuild the scene SVG when the page/scene actually changes —
-    // karaoke + listen toggles used to rewrite innerHTML every word and
-    // that makes Chronecast stutter / look like it's "catching up" to the phone.
     var sceneKey = String(data.book || '') + '|' + String(data.page) + '|' + String(data.scene || '');
     var sceneChanged = sceneKey !== lastSceneKey;
     if (sceneChanged) {
-      scenePane.innerHTML = SCENES[data.scene] || SCENES.moon;
+      showScene(data.scene);
       lastSceneKey = sceneKey;
-      scenePane.classList.remove('page-in');
-      void scenePane.offsetWidth;
-      scenePane.classList.add('page-in');
-      setTimeout(function () { scenePane.classList.remove('page-in'); }, 300);
     }
     scenePane.classList.remove('react');
     bookTitleEl.textContent = data.bookTitle || '';
@@ -996,13 +1020,19 @@
   }
 
   function copycatEnter(word, label) {
-    idleEl.style.opacity = '0';
-    setTimeout(function () { idleEl.style.display = 'none'; }, 500);
+    hideIdleNow();
     readingEl.classList.remove('visible');
     if (!copycatCat.firstChild) copycatCat.innerHTML = copycatSvg();
     setCopycatPrompt(word, label);
     copycatBubble.classList.remove('show');
     copycatEl.classList.add('visible');
+    // Copycat owns the screen — allow any queued natural/trick audio now.
+    naturalVoiceAllowed = true;
+    if (pendingNaturalUri) {
+      var uri = pendingNaturalUri;
+      pendingNaturalUri = null;
+      startNaturalAudio(uri);
+    }
   }
 
   function copycatSpeak(text) {
