@@ -682,12 +682,17 @@
     copycatTimer = setTimeout(function () { copycatCat.classList.remove('talking'); }, dur);
   }
 
-  function copycatAction(action, say) {
+  function copycatAction(action, say, audioFromPhone) {
     if (say) { copycatBubble.textContent = say; copycatBubble.classList.add('show'); }
-    // Trick lines are fixed, so they ship as pre-recorded cat-voice clips —
-    // this is the only way sound plays from a basic Chromecast (which has no
-    // speech synthesis). Live echoes still rely on catSpeak (Google TV only).
-    playSfx('copycat:' + action, 'copycat/' + action + '.wav');
+    // Only play bundled WAV when the phone is NOT streaming natural audio.
+    // Treat any truthy value as "phone owns audio" (covers boolean true / "true").
+    var phoneOwnsAudio = !!audioFromPhone && audioFromPhone !== 'false' && audioFromPhone !== '0';
+    if (!phoneOwnsAudio) {
+      playSfx('copycat:' + action, 'copycat/' + action + '.wav');
+    } else {
+      // Stop any leftover clip so we never stack WAV + natural MP3.
+      try { sfxAudio.pause(); } catch (e) {}
+    }
     copycatCat.classList.add('talking');
     var cls = 'act-' + action;
     copycatCat.classList.remove('act-jump', 'act-spin', 'act-dance', 'act-meow');
@@ -698,7 +703,13 @@
       copycatCat.removeEventListener('animationend', handler);
     });
     clearTimeout(copycatTimer);
-    copycatTimer = setTimeout(function () { copycatCat.classList.remove('talking'); }, 1300);
+    copycatTimer = setTimeout(function () { copycatCat.classList.remove('talking'); }, phoneOwnsAudio ? 3500 : 1300);
+  }
+
+  // Visuals only — phone streams natural voice separately (avoids double audio
+  // with old receivers that always played the WAV on copycatAction).
+  function copycatTrick(action, say) {
+    copycatAction(action, say, true);
   }
 
   function copycatExit() {
@@ -791,7 +802,9 @@
     } else if (data.type === 'copycatSpeak') {
       copycatSpeak(data.text);
     } else if (data.type === 'copycatAction') {
-      copycatAction(data.action, data.say);
+      copycatAction(data.action, data.say, data.audioFromPhone);
+    } else if (data.type === 'copycatTrick') {
+      copycatTrick(data.action, data.say);
     } else if (data.type === 'copycatEchoStart') {
       echoBuffers[data.id] = { total: data.total, parts: [] };
     } else if (data.type === 'copycatEchoChunk') {

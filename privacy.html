@@ -5,53 +5,62 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Privacy Policy — Little Lamplight</title>
 <style>
-  body {
-    background: #332B4E;
-    color: #FFF9F0;
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 48px 24px 80px;
-    line-height: 1.65;
-  }
-  h1 { color: #FFC857; font-size: 28px; margin-bottom: 4px; }
-  .updated { color: rgba(255,249,240,0.55); font-size: 14px; margin-bottom: 40px; }
-  h2 { color: #FFC857; font-size: 19px; margin-top: 36px; }
-  p, li { color: rgba(255,249,240,0.9); font-size: 15.5px; }
-  a { color: #FFC857; }
+  :root { --night: #332B4E; --milk: #FFF9F0; --lamp: #FFC857; --ink: #2E2A3B; }
+  body { margin: 0; padding: 32px 20px 48px; font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--night); color: var(--milk); line-height: 1.6; max-width: 720px; margin-inline: auto; }
+  h1 { font-size: 1.75rem; margin: 0 0 8px; }
+  h2 { font-size: 1.15rem; margin: 28px 0 8px; color: var(--lamp); }
+  p, li { font-size: 1rem; color: rgba(255,249,240,0.88); }
+  ul { padding-left: 1.25rem; }
+  a { color: var(--lamp); }
+  .updated { font-size: 0.9rem; opacity: 0.65; margin-bottom: 24px; }
 </style>
 </head>
 <body>
-  <h1>Little Lamplight — Privacy Policy</h1>
-  <p class="updated">Last updated: July 10, 2026</p>
+<h1>Little Lamplight — Privacy Policy</h1>
+<p class="updated">Last updated: July 13, 2026</p>
 
-  <p>Little Lamplight is a bedtime reading app that helps parents read aloud with their children. This policy explains what information the app uses and why.</p>
+<p>Little Lamplight is a bedtime reading app that helps parents read aloud with their children. This policy explains what information the app uses and why.</p>
 
-  <h2>The short version</h2>
-  <p>Little Lamplight does not have user accounts, does not collect personal information, does not use analytics or advertising, and does not send your data to any server we operate. Everything the app remembers (your language choice, reading streak, settings) is stored only on your device and is never transmitted anywhere.</p>
+<h2>The short version</h2>
+<p>Little Lamplight does not have user accounts, does not use advertising or analytics, and does not sell your data. Settings and reading progress stay on your device. When you use optional AI features (natural storyteller voices and the Reading Coach), <strong>text only</strong> is sent to OpenAI to generate audio or coaching feedback — never your voice recordings.</p>
 
-  <h2>Microphone &amp; speech recognition</h2>
-  <p>If you turn on "Say it together" (voice mode), the app listens through your device's microphone while you're on a story page, to detect when you and your child say that page's word aloud. This audio is processed using your device's built-in speech recognition (Apple's Speech framework on iOS, Android's Speech Recognizer on Android) — Little Lamplight does not record, store, or transmit this audio anywhere itself. Depending on your device and settings, some audio may be processed by Apple or Google's speech recognition services under their own respective privacy policies. Voice mode is off by default and only activates while you're actively on a story page with it enabled.</p>
+<h2>What stays on your device</h2>
+<ul>
+  <li>Language and voice preferences</li>
+  <li>Reading garden / streak progress</li>
+  <li>Cached story audio files (so lines play faster after the first time)</li>
+</ul>
 
-  <h2>Casting to a TV</h2>
-  <p>If you cast a story to a Chromecast device, the current page's text and illustration reference are sent over your local network to your TV so it can display the story. No personal information is included in this, and nothing is sent to us or stored outside your local network.</p>
+<h2>Microphone &amp; speech recognition</h2>
+<p>If you turn on <strong>Say it together</strong> (voice mode), use <strong>Copycat</strong>, or hold the button in <strong>Reading Coach</strong>, the app listens through your device's microphone. Audio is processed using your device's built-in speech recognition (Apple's Speech framework on iOS, Android's Speech Recognizer). Little Lamplight does not record, store, or transmit raw microphone audio to our servers. Depending on your device and settings, some speech recognition may be processed by Apple or Google under their respective privacy policies.</p>
+<p>Voice features are optional. Microphone access is only requested when you use a feature that needs it.</p>
 
-  <h2>What we don't do</h2>
-  <ul>
-    <li>No account creation or sign-in</li>
-    <li>No collection of your or your child's personal information</li>
-    <li>No advertising or ad tracking</li>
-    <li>No analytics or usage tracking</li>
-    <li>No data sold or shared with third parties</li>
-  </ul>
+<h2>Natural storyteller voices (OpenAI text-to-speech)</h2>
+<p>When you tap <strong>Listen first</strong>, hear Jugnu's prompts, or use natural voices while casting, the <strong>written text</strong> of that line is sent to <a href="https://openai.com/policies/privacy-policy" rel="noopener">OpenAI</a> to generate spoken audio. The resulting audio is cached on your device. OpenAI's privacy policy governs their handling of that text.</p>
 
-  <h2>Children's privacy</h2>
-  <p>Little Lamplight is designed to be used by a parent or caregiver together with their child, not by a child independently. The app does not knowingly collect personal information from anyone, including children.</p>
+<h2>Reading Coach (OpenAI chat)</h2>
+<p>When you use the Reading Coach, the <strong>target sentence on the page</strong> and, if available, a <strong>text transcript</strong> of what the device heard you read are sent to OpenAI to generate a short encouragement message. Your voice is never uploaded — only text.</p>
+<p>If you are offline or AI is unavailable, the app shows a kind offline tip instead.</p>
 
-  <h2>Changes to this policy</h2>
-  <p>If this policy changes, the update will be posted here with a new "last updated" date.</p>
+<h2>Casting to a TV</h2>
+<p>If you cast to a Chromecast, the current page's text and illustration are sent over your local network to your TV. When natural voices are enabled, generated audio may also be streamed to the TV from your phone. No personal account information is included.</p>
 
-  <h2>Contact</h2>
-  <p>Questions about this policy can be sent to <a href="mailto:littlelamplightapp@gmail.com">littlelamplightapp@gmail.com</a>.</p>
+<h2>What we don't do</h2>
+<ul>
+  <li>No account creation or sign-in</li>
+  <li>No advertising or ad tracking</li>
+  <li>No analytics or usage tracking SDKs</li>
+  <li>No sale of personal information</li>
+</ul>
+
+<h2>Children's privacy</h2>
+<p>Little Lamplight is designed to be used by a parent or caregiver together with their child, not by a child independently. The app does not knowingly collect personal information from children.</p>
+
+<h2>Changes to this policy</h2>
+<p>If this policy changes, the update will be posted here with a new "last updated" date.</p>
+
+<h2>Contact</h2>
+<p>Questions: <a href="mailto:littlelamplightapp@gmail.com">littlelamplightapp@gmail.com</a></p>
 </body>
 </html>
