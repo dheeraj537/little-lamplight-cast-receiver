@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="ll-cache-bust" content="grand-party-v8">
+<meta name="ll-cache-bust" content="milestone-v9">
 <meta charset="utf-8" />
 <title>Little Lamplight — Cast Receiver</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -327,10 +327,13 @@
     opacity: 0;
     transform: scale(0.8);
   }
-  body.mood-sun #celebrate.burst .party-sub {
+  body.mood-sun #celebrate.burst .party-sub,
+  #celebrate.burst.mega .party-sub {
     animation: partySub 0.9s cubic-bezier(.34,1.5,.64,1) 1 forwards;
     animation-delay: 0.12s;
   }
+  #celebrate.burst.mega .party-sub { color: var(--lamp); font-size: clamp(20px, 3vw, 40px); }
+  #celebrate.burst.mega .yes { text-shadow: 0 0 24px var(--lamp), 0 3px 0 rgba(0,0,0,0.25); }
   @keyframes partySub {
     0% { transform: scale(0.7); opacity: 0; }
     55% { transform: scale(1.08); opacity: 1; }
@@ -952,7 +955,7 @@
     else document.body.classList.remove('mood-sun');
   }
 
-  function celebrate(word) {
+  function celebrate(word, mega) {
     var sunny = document.body.classList.contains('mood-sun');
     clearTimeout(partySfxTimer);
     if (sunny) {
@@ -960,8 +963,13 @@
       partySfxTimer = setTimeout(function () { playChime('party.wav'); }, 140);
       setTimeout(function () { playPartyTrack('yay.wav'); }, 280);
       setTimeout(function () { playChime('celebrate.wav'); }, 520);
+      if (mega) {
+        setTimeout(function () { playPartyTrack('drum.wav'); }, 720);
+        setTimeout(function () { playPartyTrack('yay.wav'); }, 940);
+      }
     } else {
       playChime('celebrate.wav');
+      if (mega) setTimeout(function () { playChime('celebrate.wav'); }, 420);
     }
     if (celebrateYesEl) {
       celebrateYesEl.textContent = word
@@ -969,8 +977,11 @@
         : (sunny ? 'YAY!' : 'YES!');
     }
     if (celebrateSubEl) {
-      celebrateSubEl.textContent = sunny ? 'Confetti · balloons · you did it!' : '';
+      celebrateSubEl.textContent = mega
+        ? '🏆 Milestone! What a superstar! 🏆'
+        : (sunny ? 'Confetti · balloons · you did it!' : '');
     }
+    celebrateEl.classList.toggle('mega', !!mega);
     clearTimeout(celebrateTimer);
     celebrateEl.classList.remove('burst');
     for (var i = 0; i < particleEls.length; i++) {
@@ -1426,7 +1437,7 @@
     } else if (data.type === 'mood') {
       setMood(data.mood);
     } else if (data.type === 'celebrate') {
-      celebrate(data.word || data.targetWord);
+      celebrate(data.word || data.targetWord, !!data.mega);
     } else if (data.type === 'speak') {
       // Legacy pre-recorded WAV — kept as offline fallback if the phone
       // couldn't stream natural audio.
