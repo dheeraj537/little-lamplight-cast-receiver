@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="ll-cache-bust" content="copycat-audio-v4">
+<meta name="ll-cache-bust" content="tv-snap-v5">
 <meta charset="utf-8" />
 <title>Little Lamplight — Cast Receiver</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -35,19 +35,18 @@
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
     overflow: hidden;
   }
-  /* Twinkle overlay — static sparkles only (no infinite animation — Chronecast lags) */
+  /* Twinkle overlay — off during reading (Chronecast GPU is limited) */
   body::before {
     content: "";
     position: absolute; inset: 0; pointer-events: none; z-index: 0;
     background-image:
       radial-gradient(2px 2px at 12% 22%, rgba(255,255,255,0.85), transparent),
-      radial-gradient(2px 2px at 28% 58%, rgba(255,224,102,0.7), transparent),
-      radial-gradient(1.5px 1.5px at 48% 18%, rgba(255,255,255,0.7), transparent),
       radial-gradient(2px 2px at 72% 36%, rgba(110,200,255,0.8), transparent),
-      radial-gradient(1.5px 1.5px at 88% 70%, rgba(255,255,255,0.65), transparent),
-      radial-gradient(2px 2px at 62% 82%, rgba(255,123,110,0.55), transparent);
-    opacity: 0.85;
+      radial-gradient(1.5px 1.5px at 88% 70%, rgba(255,255,255,0.65), transparent);
+    opacity: 0.7;
   }
+  body.mode-story::before,
+  body.mode-copycat::before { display: none; }
 
   /* 10-foot UI: generous safe-area margin so nothing sits under a TV's overscan crop */
   .safe {
@@ -57,12 +56,26 @@
     z-index: 1;
   }
 
+  /* Screens stay mounted (display:flex) and toggle visibility — Chronecast
+     remounting with display:none→flex is what felt like "loading". */
+  #idle, #reading, #copycat {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #idle.is-on, #reading.is-on, #copycat.is-on {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 2;
+  }
+
   /* ---------- Idle screen ---------- */
   #idle {
-    position: absolute; inset: 0; z-index: 1;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-direction: column; align-items: center; justify-content: center;
     text-align: center;
-    /* No fade — Chronecast screen switches must be instant */
   }
   #idle .moon-badge { width: 160px; height: 160px; margin-bottom: 28px; }
   #idle h1 { font-size: 3.8vw; margin: 0 0 12px; font-weight: 800;
@@ -72,10 +85,8 @@
 
   /* ---------- Reading screen ---------- */
   #reading {
-    position: absolute; inset: 0; z-index: 1;
-    display: none;
+    flex-direction: row;
   }
-  #reading.visible { display: flex; }
   .stage {
     display: flex;
     align-items: center;
@@ -95,7 +106,6 @@
   .scene-pane svg {
     width: 100%; height: auto; max-height: 78vh;
     border-radius: 28px;
-    /* No CSS filter here — filters kill Chromecast frame rate */
   }
 
   .content-pane {
@@ -127,7 +137,7 @@
       0 0 0 6px rgba(255,224,102,0.45),
       0 18px 50px rgba(0,0,0,0.35);
   }
-  .sentence .word { transition: background 0.15s ease, color 0.15s ease, transform 0.2s ease; border-radius: 12px; padding: 0 8px; display: inline-block; }
+  .sentence .word { border-radius: 12px; padding: 0 8px; display: inline-block; }
   .sentence .word.hl { background: var(--lamp); color: var(--ink); transform: scale(1.06); }
   .sentence .word.target {
     text-decoration: underline;
@@ -314,19 +324,16 @@
   /* ---------- Copycat screen ---------- */
   /* TV overscan (esp. TCL) crops ~8–10% of edges — keep all text inside title-safe. */
   #copycat {
-    position: absolute; inset: 0; z-index: 1;
-    display: none; flex-direction: column; align-items: center; justify-content: space-between;
+    flex-direction: column; align-items: center; justify-content: space-between;
     gap: 1.2vh;
     box-sizing: border-box;
     padding: 11vh 9vw 12vh;
     overflow: hidden;
-    /* Instant show — fade made Copycat feel like a slow screen load */
     background:
       radial-gradient(ellipse 70% 55% at 50% 40%, rgba(255,123,110,0.28), transparent 60%),
       radial-gradient(ellipse 50% 40% at 20% 80%, rgba(95,227,161,0.2), transparent 50%),
       radial-gradient(ellipse 50% 40% at 85% 15%, rgba(255,224,102,0.25), transparent 50%);
   }
-  #copycat.visible { display: flex; }
   #copycatCatWrap {
     flex: 1 1 auto;
     min-height: 0;
@@ -421,7 +428,7 @@
   </div>
   <audio id="sfxAudio" preload="auto"></audio>
 
-  <div id="idle">
+  <div id="idle" class="is-on">
     <svg class="moon-badge" viewBox="0 0 140 140">
       <circle cx="70" cy="70" r="70" fill="var(--night-deep)"/>
       <circle cx="70" cy="70" r="34" fill="var(--lamp)"/>
@@ -819,35 +826,48 @@
   var pendingNaturalUri = null;
   var pageReadyTimer = null;
 
-  function hideIdleNow() {
-    idleEl.style.display = 'none';
-    idleEl.style.opacity = '1';
+  function showScreen(which) {
+    // Instant visibility swap — screens stay laid out in memory.
+    idleEl.classList.toggle('is-on', which === 'idle');
+    readingEl.classList.toggle('is-on', which === 'reading');
+    copycatEl.classList.toggle('is-on', which === 'copycat');
+    document.body.classList.toggle('mode-story', which === 'reading');
+    document.body.classList.toggle('mode-copycat', which === 'copycat');
   }
 
   // Cache each scene SVG in the DOM and toggle .active — avoids re-parsing
   // markup on every page turn (the main Chronecast "slow load" cost).
+  function prefetchScene(sceneName) {
+    var name = sceneName || 'moon';
+    if (sceneSlots[name]) return;
+    var slot = document.createElement('div');
+    slot.className = 'scene-slot';
+    slot.innerHTML = SCENES[name] || SCENES.moon;
+    scenePane.appendChild(slot);
+    sceneSlots[name] = slot;
+  }
+
   function showScene(sceneName) {
     var name = sceneName || 'moon';
+    prefetchScene(name);
     var keys = Object.keys(sceneSlots);
     for (var i = 0; i < keys.length; i++) sceneSlots[keys[i]].classList.remove('active');
-    var slot = sceneSlots[name];
-    var created = false;
-    if (!slot) {
-      slot = document.createElement('div');
-      slot.className = 'scene-slot';
-      slot.innerHTML = SCENES[name] || SCENES.moon;
-      scenePane.appendChild(slot);
-      sceneSlots[name] = slot;
-      created = true;
-    }
-    slot.classList.add('active');
-    var changed = created || name !== lastSceneName;
+    sceneSlots[name].classList.add('active');
+    var changed = name !== lastSceneName;
     lastSceneName = name;
     return changed;
   }
 
-  // Warm common scenes in the background after boot so first page turns feel instant.
-  // (Removed: prebuilding every scene on Chronecast caused hitching at cast start.)
+  function warmScenes(list) {
+    if (!list || !list.length) return;
+    var i = 0;
+    function step() {
+      if (i >= list.length) return;
+      prefetchScene(list[i++]);
+      setTimeout(step, 16);
+    }
+    setTimeout(step, 0);
+  }
 
   // Prebuild Copycat SVG once so entering the game is instant.
   setTimeout(function () {
@@ -877,8 +897,7 @@
 
   function signalPageReady(data, sceneChanged) {
     clearTimeout(pageReadyTimer);
-    // One frame is enough once fades are gone — don't add artificial lag.
-    var delay = sceneChanged ? 32 : 0;
+    // Text is already on screen — ack VO immediately.
     pageReadyTimer = setTimeout(function () {
       naturalVoiceAllowed = true;
       if (pendingNaturalUri) {
@@ -893,7 +912,7 @@
           page: data.page,
         });
       } catch (e) {}
-    }, delay);
+    }, 0);
   }
 
   function renderPage(data) {
@@ -903,8 +922,8 @@
     pendingNaturalUri = null;
     clearTimeout(pageReadyTimer);
 
-    hideIdleNow();
-    readingEl.classList.add('visible');
+    // Flip reading on FIRST so Chronecast feels snappy, then fill content.
+    showScreen('reading');
 
     var sceneKey = String(data.book || '') + '|' + String(data.page) + '|' + String(data.scene || '');
     var sceneChanged = sceneKey !== lastSceneKey;
@@ -912,9 +931,13 @@
       showScene(data.scene);
       lastSceneKey = sceneKey;
     }
+    // Prefetch upcoming art while the current page is showing.
+    if (data.nextScene) prefetchScene(data.nextScene);
+    if (data.scenes && data.scenes.length) warmScenes(data.scenes);
+
     scenePane.classList.remove('react');
     bookTitleEl.textContent = data.bookTitle || '';
-    phoneticEl.textContent = '🔈 ' + (data.phonetic || '');
+    phoneticEl.textContent = data.phonetic ? ('🔈 ' + data.phonetic) : '';
     promptEl.textContent = data.prompt || '';
     hiLineEl.textContent = data.hi ? (data.hi + ' — ' + (data.hiTrans || '')) : '';
 
@@ -945,11 +968,8 @@
     naturalVoiceAllowed = false;
     pendingNaturalUri = null;
     clearTimeout(pageReadyTimer);
-    readingEl.classList.remove('visible');
     readingEl.classList.remove('listening');
-    copycatEl.classList.remove('visible');
-    idleEl.style.display = 'flex';
-    idleEl.style.opacity = '1';
+    showScreen('idle');
   }
 
   // ---- Copycat: Mochi the cat mirrors the phone's echo game on the TV ----
@@ -1020,12 +1040,10 @@
   }
 
   function copycatEnter(word, label) {
-    hideIdleNow();
-    readingEl.classList.remove('visible');
     if (!copycatCat.firstChild) copycatCat.innerHTML = copycatSvg();
     setCopycatPrompt(word, label);
     copycatBubble.classList.remove('show');
-    copycatEl.classList.add('visible');
+    showScreen('copycat');
     // Copycat owns the screen — allow any queued natural/trick audio now.
     naturalVoiceAllowed = true;
     if (pendingNaturalUri) {
@@ -1089,7 +1107,8 @@
   function copycatExit() {
     copycatCat.classList.remove('talking');
     copycatBubble.classList.remove('show');
-    copycatEl.classList.remove('visible');
+    copycatEl.classList.remove('is-on');
+    document.body.classList.remove('mode-copycat');
   }
 
   // Live echo audio streamed from the phone (basic Chromecast can't synthesize
@@ -1137,8 +1156,8 @@
   function playNaturalAudio(dataUri) {
     // Allow VO on reading OR Copycat — the old check required #reading.visible,
     // which queued every Copycat trick/echo-natural into silence.
-    var onReading = readingEl.classList.contains('visible');
-    var onCopycat = copycatEl.classList.contains('visible');
+    var onReading = readingEl.classList.contains('is-on');
+    var onCopycat = copycatEl.classList.contains('is-on');
     if (!naturalVoiceAllowed || (!onReading && !onCopycat)) {
       pendingNaturalUri = dataUri;
       return;
