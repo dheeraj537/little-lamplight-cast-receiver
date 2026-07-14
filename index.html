@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="ll-cache-bust" content="tv-snap-v5">
+<meta name="ll-cache-bust" content="celebrate-chime-v6">
 <meta charset="utf-8" />
 <title>Little Lamplight — Cast Receiver</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -246,12 +246,12 @@
     display: flex; align-items: center; justify-content: center;
     pointer-events: none;
     opacity: 0;
-    z-index: 20;
+    z-index: 100;
   }
   #celebrate.burst { opacity: 1; }
   #celebrate .flash {
     position: absolute; inset: 0;
-    background: radial-gradient(circle at 50% 45%, rgba(255,224,102,0.45), transparent 55%);
+    background: radial-gradient(circle at 50% 45%, rgba(255,224,102,0.55), transparent 55%);
     opacity: 0;
   }
   #celebrate.burst .flash { animation: flashPop 0.7s ease-out 1; }
@@ -263,7 +263,7 @@
   #celebrate .glow {
     width: 22vw; height: 22vw; max-width: 260px; max-height: 260px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,224,102,0.85), rgba(255,123,110,0.35) 50%, transparent 70%);
+    background: radial-gradient(circle, rgba(255,224,102,0.9), rgba(255,123,110,0.4) 50%, transparent 70%);
     display: flex; align-items: center; justify-content: center;
     transform: scale(0.3);
     opacity: 0;
@@ -279,8 +279,8 @@
   #celebrate .glow svg { width: 40%; height: 40%; }
   #celebrate .yes {
     position: absolute;
-    top: 18%;
-    font-size: 5.5vw;
+    top: 16%;
+    font-size: clamp(28px, 5.5vw, 72px);
     font-weight: 900;
     color: var(--lamp);
     text-shadow: 0 4px 0 rgba(0,0,0,0.25);
@@ -299,17 +299,16 @@
     position: absolute;
     width: 3.2vw; height: 3.2vw; max-width: 42px; max-height: 42px;
     opacity: 0;
-    will-change: transform, opacity;
+    /* Chronecast often ignores CSS vars inside @keyframes — bake motion in JS */
   }
   #celebrate .particle svg { width: 100%; height: 100%; display: block; }
-  #celebrate.burst .particle {
+  #celebrate.burst .particle.fly {
     animation: sparkFly 0.85s ease-out 1 forwards;
-    animation-delay: var(--delay, 0ms);
   }
   @keyframes sparkFly {
     0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
     20% { opacity: 1; }
-    100% { transform: translate(var(--dx), var(--dy)) scale(1.15); opacity: 0; }
+    100% { transform: translate(0, -120px) scale(1.15); opacity: 0; }
   }
 
   /* Soft idle wobble — ONE element only, transform only */
@@ -427,6 +426,7 @@
     <div class="glow"><svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="#FFE066"/></svg></div>
   </div>
   <audio id="sfxAudio" preload="auto"></audio>
+  <audio id="chimeAudio" preload="auto"></audio>
 
   <div id="idle" class="is-on">
     <svg class="moon-badge" viewBox="0 0 140 140">
@@ -715,29 +715,40 @@
 
   // Prebuild spark particles once. Chromecast is fine with CSS transform
   // bursts; rewriting SVG every highlight is what caused the lag.
+  // Motions are baked as keyframe names (not CSS vars — CAF ignores those).
+  var particleEls = [];
   (function setupParticles() {
     var count = 14;
     var colors = [T.lamp, T.coral, T.mint, '#6EC8FF', T.lamp, T.coral];
     for (var i = 0; i < count; i++) {
       var angle = (i / count) * Math.PI * 2;
       var dist = 140 + (i % 3) * 55;
+      var dx = Math.round(Math.cos(angle) * dist);
+      var dy = Math.round(Math.sin(angle) * dist);
       var el = document.createElement('div');
       el.className = 'particle';
-      el.style.setProperty('--dx', Math.round(Math.cos(angle) * dist) + 'px');
-      el.style.setProperty('--dy', Math.round(Math.sin(angle) * dist) + 'px');
-      el.style.setProperty('--delay', (i * 18) + 'ms');
+      el.style.animationDelay = (i * 18) + 'ms';
+      // Bake translate into a per-particle keyframe so Chronecast can animate it.
+      var animName = 'sparkFly' + i;
+      var sheet = document.createElement('style');
+      sheet.textContent =
+        '@keyframes ' + animName + '{' +
+        '0%{transform:translate(0,0) scale(0.4);opacity:0}' +
+        '20%{opacity:1}' +
+        '100%{transform:translate(' + dx + 'px,' + dy + 'px) scale(1.15);opacity:0}' +
+        '}';
+      document.head.appendChild(sheet);
+      el.dataset.anim = animName;
       el.innerHTML = '<svg viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="' + colors[i % colors.length] + '"/></svg>';
       celebrateEl.appendChild(el);
+      particleEls.push(el);
     }
   })();
 
-  // A single shared <audio> element for both the celebration chime and the
-  // narration clips. Two separate <audio> elements previously fought each
-  // other for the Chromecast's audio decoding resources whenever a
-  // celebration and a narration preload landed close together (e.g.
-  // celebrating a page and preloading the next one) - one shared element
-  // makes that race impossible by construction.
+  // A single shared <audio> element for narration / natural TTS / echo.
+  // Celebrate chime uses #chimeAudio so Jugnu's cheer never cuts it off.
   var sfxAudio = document.getElementById('sfxAudio');
+  var chimeAudio = document.getElementById('chimeAudio');
   var sfxLoaded = null; // key of whatever's currently loaded/loading in sfxAudio
   var narratePreloadKey = null; // book+page we'd like preloaded once sfxAudio is free
 
@@ -769,21 +780,53 @@
     sfxAudio.load();
   }
 
+  function playChime(src) {
+    if (!chimeAudio) { playSfx('celebrate', src); return; }
+    try {
+      chimeAudio.pause();
+      chimeAudio.playbackRate = 1.0;
+      chimeAudio.onerror = function () { console.error('[chime] failed', chimeAudio.error); };
+      chimeAudio.oncanplay = function () {
+        chimeAudio.oncanplay = null;
+        var p = chimeAudio.play();
+        if (p && typeof p.catch === 'function') p.catch(function (err) { console.error('[chime] play', err); });
+      };
+      // Bust cache if CAF sticky-cached a bad load.
+      chimeAudio.src = src + (src.indexOf('?') >= 0 ? '&' : '?') + 'v=6';
+      chimeAudio.load();
+    } catch (e) {
+      playSfx('celebrate', src);
+    }
+  }
+
   function celebrate(word) {
-    playSfx('celebrate', 'celebrate.wav');
+    playChime('celebrate.wav');
     if (celebrateYesEl) celebrateYesEl.textContent = word ? ('YES! ' + String(word).toUpperCase() + '!') : 'YES!';
     clearTimeout(celebrateTimer);
     celebrateEl.classList.remove('burst');
+    for (var i = 0; i < particleEls.length; i++) {
+      particleEls[i].classList.remove('fly');
+      particleEls[i].style.animation = 'none';
+    }
     scenePane.classList.remove('react');
     // Force reflow so replaying the same flourish restarts cleanly.
     void celebrateEl.offsetWidth;
     void scenePane.offsetWidth;
+    for (var j = 0; j < particleEls.length; j++) {
+      particleEls[j].style.animation = particleEls[j].dataset.anim + ' 0.85s ease-out forwards';
+      particleEls[j].style.animationDelay = (j * 18) + 'ms';
+      particleEls[j].classList.add('fly');
+    }
     celebrateEl.classList.add('burst');
     scenePane.classList.add('react');
     celebrateTimer = setTimeout(function () {
       celebrateEl.classList.remove('burst');
       scenePane.classList.remove('react');
-    }, 1000);
+      for (var k = 0; k < particleEls.length; k++) {
+        particleEls[k].classList.remove('fly');
+        particleEls[k].style.animation = 'none';
+      }
+    }, 1100);
   }
 
   // Once whatever's playing finishes, clear deferred narrate preload intent.
